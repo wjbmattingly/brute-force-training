@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools-scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "brute-force-training"
+version = "0.0.1"
+description = "A no-thrills Python package for finetuning Vision-Language Models (VLMs)"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+    {name = "William J.B. Mattingly"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "torch>=1.11.0",
+    "transformers>=4.37.0",
+    "datasets>=2.14.0",
+    "Pillow>=9.0.0",
+    "tqdm>=4.60.0",
+    "qwen-vl-utils>=0.0.8",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "black>=22.0",
+    "flake8>=4.0",
+    "isort>=5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/wjbmattingly/brute-force-training"
+Repository = "https://github.com/wjbmattingly/brute-force-training"
+Issues = "https://github.com/wjbmattingly/brute-force-training/issues"
+
+[project.scripts]
+brute-force-train = "brute_force_training.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["brute_force_training*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py38']
+
+[tool.isort]
+profile = "black"
+line_length = 100

@@ -1,0 +1,13 @@
+# Core dependencies for brute-force-training
+torch
+transformers
+datasets
+Pillow
+tqdm
+qwen-vl-utils
+
+# Optional dependencies for specific models
+# Uncomment as needed:
+# accelerate>=0.20.0  # For model parallelism
+# bitsandbytes>=0.39.0  # For quantization
+# flash-attn>=2.0.0  # For flash attention (requires CUDA)
