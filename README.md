@@ -1,8 +1,8 @@
 <!-- markdownlint-disable MD001 MD041 -->
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/wjbmattingly/brute-force-training/assets/bft-dark.png">
-    <img alt="bft" src="https://raw.githubusercontent.com/wjbmattingly/brute-force-training/assets/bft-light.png" width=55%>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/wjbmattingly/brute-force-training/main/assets/bft-dark.png">
+    <img alt="bft" src="https://raw.githubusercontent.com/wjbmattingly/brute-force-training/main/assets/bft-light.png" width=55%>
   </picture>
 </p>
 
