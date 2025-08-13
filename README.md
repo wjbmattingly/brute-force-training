@@ -1,3 +1,18 @@
+<!-- markdownlint-disable MD001 MD041 -->
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/wjbmattingly/brute-force-training/assets/bft-dark.png">
+    <img alt="bft" src="https://raw.githubusercontent.com/wjbmattingly/brute-force-training/assets/bft-light.png" width=55%>
+  </picture>
+</p>
+
+<h3 align="center">
+No thrills. Un-Optimized. Training.
+</h3>
+
+
+---
+
 # Brute Force Training
 
 A no-thrills, unoptimized Python package for finetuning Vision-Language Models (VLMs). This package provides simple training utilities for various VLM architectures with HuggingFace datasets integration.
