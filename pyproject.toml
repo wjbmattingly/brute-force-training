@@ -35,6 +35,7 @@ dependencies = [
     "qwen-vl-utils>=0.0.8",
     "matplotlib>=3.5.0",
     "seaborn>=0.11.0",
+    "python-Levenshtein>=0.12.0",
 ]
 
 [project.optional-dependencies]
