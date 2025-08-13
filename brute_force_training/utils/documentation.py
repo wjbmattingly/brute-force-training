@@ -340,23 +340,20 @@ This model is a fine-tuned version of **{self.base_model_name}** using the brute
         # Add training history section
         if self.training_metrics:
             readme_content += f"""
-## Training History
+## Training Progress
 
-### Recent Training Steps
-| Step | Training Loss | Validation Loss | Timestamp |
-|------|---------------|-----------------|-----------|
+### Recent Training Steps (Loss Only)
+| Step | Training Loss | Timestamp |
+|------|---------------|-----------|
 """
             # Show last 10 training steps
             recent_steps = self.training_metrics[-10:]
-            val_dict = {v['step']: v['val_loss'] for v in self.validation_metrics}
             
             for step_info in recent_steps:
                 step = step_info['step']
                 loss = step_info['loss']
-                val_loss = val_dict.get(step, 'N/A')
                 timestamp = step_info['timestamp'][:16]  # Just date and time
-                val_loss_str = f"{val_loss:.6f}" if isinstance(val_loss, (int, float)) else val_loss
-                readme_content += f"| {step:,} | {loss:.6f} | {val_loss_str} | {timestamp} |\n"
+                readme_content += f"| {step:,} | {loss:.6f} | {timestamp} |\n"
 
         # Add visualizations section with embedded images
         readme_content += f"""
@@ -452,7 +449,12 @@ tokenizer = AutoTokenizer.from_pretrained("./{model_name}")
         # Add performance metrics if available
         if self.training_metrics:
             metadata['final_training_loss'] = self.training_metrics[-1]['loss']
-        if self.validation_metrics:
-            metadata['final_validation_loss'] = self.validation_metrics[-1]['val_loss']
+        if self.evaluation_history:
+            latest_eval = self.evaluation_history[-1]
+            metadata['final_evaluation_loss'] = latest_eval.get('loss')
+            if latest_eval.get('avg_char_accuracy'):
+                metadata['final_char_accuracy'] = latest_eval['avg_char_accuracy']
+            if latest_eval.get('avg_word_accuracy'):
+                metadata['final_word_accuracy'] = latest_eval['avg_word_accuracy']
             
         return metadata
