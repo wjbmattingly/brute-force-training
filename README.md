@@ -1,3 +1,8 @@
+---
+base_model:
+- LiquidAI/LFM2-VL-1.6B
+---
+
 <!-- markdownlint-disable MD001 MD041 -->
 <p align="center">
   <picture>

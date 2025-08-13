@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "brute-force-training"
-version = "0.0.1"
+version = "0.0.2"
 description = "A no-thrills Python package for finetuning Vision-Language Models (VLMs)"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -27,15 +27,15 @@ classifiers = [
 ]
 requires-python = ">=3.8"
 dependencies = [
-    "torch>=1.11.0",
-    "transformers>=4.37.0",
-    "datasets>=2.14.0",
-    "Pillow>=9.0.0",
-    "tqdm>=4.60.0",
-    "qwen-vl-utils>=0.0.8",
-    "matplotlib>=3.5.0",
-    "seaborn>=0.11.0",
-    "python-Levenshtein>=0.12.0",
+    "torch",
+    "transformers",
+    "datasets",
+    "Pillow",
+    "tqdm",
+    "qwen-vl-utils",
+    "matplotlib",
+    "seaborn",
+    "python-Levenshtein",
 ]
 
 [project.optional-dependencies]
