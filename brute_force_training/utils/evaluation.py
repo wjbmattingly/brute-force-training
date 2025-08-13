@@ -134,16 +134,31 @@ class ModelEvaluator:
                                 
                             target_text = self.processor.decode(target_tokens, skip_special_tokens=True).strip()
                             
-                            # Generate prediction
-                            generated_ids = self.model.generate(
-                                **single_inputs,
-                                max_new_tokens=min(150, len(target_tokens) * 2),  # Reasonable max length
-                                do_sample=False,
-                                pad_token_id=getattr(self.model.config, 'eos_token_id', self.model.config.pad_token_id),
-                                eos_token_id=getattr(self.model.config, 'eos_token_id', self.model.config.pad_token_id),
-                                temperature=1.0,
-                                repetition_penalty=1.1
-                            )
+                            # Generate prediction with more conservative settings
+                            try:
+                                # For models with image token constraints (e.g., LFM2-VL), use conservative generation
+                                generation_kwargs = {
+                                    'max_new_tokens': min(50, len(target_tokens)),  # Very conservative for image-text models
+                                    'do_sample': False,
+                                    'pad_token_id': getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0)),
+                                    'eos_token_id': getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0)),
+                                    'use_cache': False,  # Disable cache to avoid potential issues with variable image tokens
+                                }
+                                
+                                # Only add attention_mask if it exists and is valid
+                                if 'attention_mask' in single_inputs and single_inputs['attention_mask'] is not None:
+                                    generation_kwargs['attention_mask'] = single_inputs['attention_mask']
+                                
+                                generated_ids = self.model.generate(**single_inputs, **generation_kwargs)
+                                
+                            except Exception as gen_error:
+                                # More detailed error logging for debugging
+                                error_msg = str(gen_error)
+                                if "Image features and image tokens do not match" in error_msg:
+                                    print(f"  Image token mismatch in batch {i}, sample {batch_idx} - skipping text evaluation for this sample")
+                                else:
+                                    print(f"  Generation failed for batch {i}, sample {batch_idx}: {error_msg}")
+                                continue
                             
                             # Extract only the generated part (remove input)
                             input_length = single_inputs['input_ids'].size(1)
@@ -197,6 +212,10 @@ class ModelEvaluator:
             print(f"  Text evaluation: {len(text_metrics_list)} samples processed")
             print(f"  Avg character accuracy: {avg_char_accuracy:.3f}")
             print(f"  Avg word accuracy: {avg_word_accuracy:.3f}")
+        elif include_text_metrics:
+            # Text metrics were requested but none succeeded
+            print(f"  ⚠️ Text evaluation failed - no successful generations out of {total_samples} samples")
+            print(f"  Continuing with loss-only metrics...")
         
         self.model.train()  # Set back to training mode
         return eval_results

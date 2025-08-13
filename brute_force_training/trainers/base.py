@@ -163,6 +163,7 @@ class BaseTrainer(ABC):
         learning_rate: float = 1e-5,
         validate_before: bool = True,
         generate_docs: bool = True,
+        validation_text_metrics: bool = True,  # Whether to include text metrics during training validation
         **kwargs
     ) -> None:
         """
@@ -346,17 +347,21 @@ class BaseTrainer(ABC):
                 # Perform evaluation and save model
                 if global_step % eval_steps == 0 or global_step == max_steps:
                     if len(val_loader) > 0:
-                        print(f"\n🔍 Running evaluation at step {global_step}...")
+                        print(f"\n🔍 Running validation at step {global_step}...")
                         evaluator = ModelEvaluator(self.model, val_loader, self.tokenizer_or_processor)
-                        eval_results = evaluator.evaluate_model(num_samples=min(50, len(val_loader)), include_text_metrics=True)
+                        # Use smaller sample size during training for efficiency
+                        eval_samples = min(30, len(val_loader))
+                        eval_results = evaluator.evaluate_model(num_samples=eval_samples, include_text_metrics=validation_text_metrics)
                         
-                        print(f"📈 Step {global_step} Evaluation:")
+                        print(f"📈 Step {global_step} Validation Results:")
                         print(f"   Loss: {eval_results['loss']:.6f}")
                         print(f"   Perplexity: {eval_results['perplexity']:.2f}")
-                        if eval_results.get('avg_char_accuracy'):
+                        if eval_results.get('avg_char_accuracy') is not None:
                             print(f"   Character Accuracy: {eval_results['avg_char_accuracy']*100:.1f}%")
-                        if eval_results.get('avg_word_accuracy'):
+                        if eval_results.get('avg_word_accuracy') is not None:
                             print(f"   Word Accuracy: {eval_results['avg_word_accuracy']*100:.1f}%")
+                        if eval_results.get('text_samples_evaluated', 0) > 0:
+                            print(f"   Text samples evaluated: {eval_results['text_samples_evaluated']}/{eval_samples}")
                         
                         # Log comprehensive evaluation metrics
                         if generate_docs:
