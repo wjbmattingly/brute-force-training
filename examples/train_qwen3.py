@@ -19,6 +19,9 @@ def main():
         input_column="input",
         output_column="output",
         
+        # System prompt (optional) - like user_text for VLMs
+        system_prompt="You are a helpful assistant. Please provide clear and accurate responses.",
+        
         # Training parameters
         max_steps=8000,
         eval_steps=1000,

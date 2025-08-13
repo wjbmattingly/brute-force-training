@@ -83,6 +83,8 @@ Examples:
     parser.add_argument("--output-column", type=str, default="output", help="Output column for text models")
     parser.add_argument("--user-text", type=str, default="Convert this image to text", 
                        help="User prompt text for vision models")
+    parser.add_argument("--system-prompt", type=str, default=None,
+                       help="System prompt for text models (like instruction/context)")
     
     # Training arguments
     parser.add_argument("--max-steps", type=int, default=10000, help="Maximum training steps")

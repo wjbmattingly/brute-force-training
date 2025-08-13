@@ -38,10 +38,11 @@ class Qwen3Trainer(BaseTrainer):
         dataset,
         input_column: str = "input",
         output_column: str = "output",
+        system_prompt: str = None,
         **kwargs
     ):
         """Create a TextOnlyDataset instance."""
-        return TextOnlyDataset(dataset, input_column, output_column)
+        return TextOnlyDataset(dataset, input_column, output_column, system_prompt)
         
     def filter_dataset(self, dataset):
         """No default filtering applied - returns dataset unchanged."""

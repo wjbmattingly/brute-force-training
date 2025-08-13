@@ -87,9 +87,40 @@ trainer.train_and_validate(
     dataset_name="your_text_dataset",
     input_column="input",
     output_column="output",
+    system_prompt="You are a helpful assistant.",  # ✨ System prompt support
     max_steps=1000,
     train_batch_size=4,
     learning_rate=1e-5
+)
+```
+
+### System Prompts for Text Models
+
+Just like vision models have `user_text`, text models now support `system_prompt`:
+
+```python
+# Math tutoring model
+trainer.train_and_validate(
+    dataset_name="math_problems",
+    system_prompt="You are a mathematics tutor. Provide step-by-step solutions."
+)
+
+# Code assistant model  
+trainer.train_and_validate(
+    dataset_name="code_questions",
+    system_prompt="You are a coding assistant. Write clean, efficient code."
+)
+
+# Creative writing model
+trainer.train_and_validate(
+    dataset_name="writing_prompts", 
+    system_prompt="You are a creative writer. Write engaging stories."
+)
+
+# No system prompt (original behavior)
+trainer.train_and_validate(
+    dataset_name="general_qa",
+    system_prompt=None  # Or just omit this parameter
 )
 ```
 

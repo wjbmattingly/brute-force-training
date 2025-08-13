@@ -25,11 +25,13 @@ class TextOnlyDataset(Dataset):
         self, 
         dataset: Any, 
         input_column: str = "input", 
-        output_column: str = "output"
+        output_column: str = "output",
+        system_prompt: str = None
     ):
         self.dataset = dataset
         self.input_column = input_column
         self.output_column = output_column
+        self.system_prompt = system_prompt
 
     def __len__(self) -> int:
         return len(self.dataset)
@@ -39,15 +41,25 @@ class TextOnlyDataset(Dataset):
         input_text = item[self.input_column]
         output_text = item[self.output_column]
 
-        return {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": str(input_text)
-                },
-                {
-                    "role": "assistant",
-                    "content": str(output_text)
-                }
-            ]
-        }
+        messages = []
+        
+        # Add system prompt if provided
+        if self.system_prompt:
+            messages.append({
+                "role": "system",
+                "content": str(self.system_prompt)
+            })
+        
+        # Add user message
+        messages.append({
+            "role": "user", 
+            "content": str(input_text)
+        })
+        
+        # Add assistant response
+        messages.append({
+            "role": "assistant",
+            "content": str(output_text)
+        })
+
+        return {"messages": messages}

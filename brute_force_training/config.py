@@ -26,6 +26,7 @@ class TrainingConfig:
     input_column: str = "input"
     output_column: str = "output"
     user_text: str = "Convert this image to text"
+    system_prompt: str = None
     
     # Training parameters
     max_steps: int = 10000
@@ -124,7 +125,8 @@ CONFIGS = {
         eval_steps=1000,
         train_batch_size=4,
         val_batch_size=4,
-        max_length=2048
+        max_length=2048,
+        system_prompt="You are a helpful assistant. Please provide clear and accurate responses."
     )
 }
 
