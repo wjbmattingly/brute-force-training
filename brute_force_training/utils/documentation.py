@@ -289,11 +289,17 @@ This model is a fine-tuned version of **{self.base_model_name}** using the brute
 
         # Add pre-training evaluation results
         if self.pre_training_eval:
+            pre_loss = self.pre_training_eval.get('loss', 'N/A')
+            pre_perplexity = self.pre_training_eval.get('perplexity', 'N/A')
+            
+            loss_str = f"{pre_loss:.6f}" if isinstance(pre_loss, (int, float)) else str(pre_loss)
+            perp_str = f"{pre_perplexity:.2f}" if isinstance(pre_perplexity, (int, float)) else str(pre_perplexity)
+            
             readme_content += f"""## Pre-Training Evaluation
 
 **Initial Model Performance (before training):**
-- **Loss**: {self.pre_training_eval.get('loss', 'N/A'):.6f if isinstance(self.pre_training_eval.get('loss'), (int, float)) else 'N/A'}
-- **Perplexity**: {self.pre_training_eval.get('perplexity', 'N/A'):.2f if isinstance(self.pre_training_eval.get('perplexity'), (int, float)) else 'N/A'}
+- **Loss**: {loss_str}
+- **Perplexity**: {perp_str}
 """
             if self.pre_training_eval.get('avg_char_accuracy'):
                 readme_content += f"- **Character Accuracy**: {self.pre_training_eval['avg_char_accuracy']*100:.1f}%\n"
