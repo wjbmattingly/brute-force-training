@@ -1,9 +1,3 @@
----
-base_model:
-- LiquidAI/LFM2-VL-1.6B
----
-
-<!-- markdownlint-disable MD001 MD041 -->
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/wjbmattingly/brute-force-training/main/assets/bft-dark.png">

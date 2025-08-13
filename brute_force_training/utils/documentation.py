@@ -256,7 +256,12 @@ class ModelDocumenter:
         latest_eval = self.evaluation_history[-1] if self.evaluation_history else {}
         final_eval_loss = latest_eval.get('loss', 'N/A')
         
-        readme_content = f"""# {model_name}
+        readme_content = f"""---
+base_model:
+- {self.base_model_name}
+---
+
+# {model_name}
 
 ## Model Description
 
