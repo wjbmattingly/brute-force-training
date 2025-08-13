@@ -295,8 +295,16 @@ class BaseTrainer(ABC):
         if validate_before and len(val_loader) > 0:
             print("🔍 Running pre-training evaluation...")
             evaluator = ModelEvaluator(self.model, val_loader)
-            pre_training_results = evaluator.evaluate_model(num_samples=min(100, len(val_loader)))
-            print(f"📊 Pre-training - Loss: {pre_training_results['loss']:.6f}, Perplexity: {pre_training_results['perplexity']:.2f}")
+            pre_training_results = evaluator.evaluate_model(num_samples=min(50, len(val_loader)), include_text_metrics=True)
+            
+            # Print comprehensive pre-training results
+            print(f"📊 Pre-training Results:")
+            print(f"   Loss: {pre_training_results['loss']:.6f}")
+            print(f"   Perplexity: {pre_training_results['perplexity']:.2f}")
+            if pre_training_results.get('avg_char_accuracy'):
+                print(f"   Character Accuracy: {pre_training_results['avg_char_accuracy']*100:.1f}%")
+            if pre_training_results.get('avg_word_accuracy'):
+                print(f"   Word Accuracy: {pre_training_results['avg_word_accuracy']*100:.1f}%")
             
             if generate_docs:
                 self.documenter.set_pre_training_eval(pre_training_results)
@@ -337,13 +345,23 @@ class BaseTrainer(ABC):
 
                 # Perform evaluation and save model
                 if global_step % eval_steps == 0 or global_step == max_steps:
-                    avg_val_loss = self.validate(val_loader)
-                    if avg_val_loss is not None:
-                        print(f"\n📈 Step {global_step}: Validation Loss = {avg_val_loss:.6f}")
+                    if len(val_loader) > 0:
+                        print(f"\n🔍 Running evaluation at step {global_step}...")
+                        evaluator = ModelEvaluator(self.model, val_loader)
+                        eval_results = evaluator.evaluate_model(num_samples=min(50, len(val_loader)), include_text_metrics=True)
                         
-                        # Log validation metrics
+                        print(f"📈 Step {global_step} Evaluation:")
+                        print(f"   Loss: {eval_results['loss']:.6f}")
+                        print(f"   Perplexity: {eval_results['perplexity']:.2f}")
+                        if eval_results.get('avg_char_accuracy'):
+                            print(f"   Character Accuracy: {eval_results['avg_char_accuracy']*100:.1f}%")
+                        if eval_results.get('avg_word_accuracy'):
+                            print(f"   Word Accuracy: {eval_results['avg_word_accuracy']*100:.1f}%")
+                        
+                        # Log comprehensive evaluation metrics
                         if generate_docs:
-                            self.documenter.log_validation_step(global_step, avg_val_loss)
+                            checkpoint_type = "final" if global_step == max_steps else "checkpoint"
+                            self.documenter.log_evaluation_checkpoint(global_step, eval_results, checkpoint_type)
                     else:
                         print(f"\n⚠️ Step {global_step}: Validation skipped (empty validation set)")
 
@@ -351,24 +369,30 @@ class BaseTrainer(ABC):
                     self.model.train()  # Set back to training mode
 
                 if global_step >= max_steps:
-                    # Post-training evaluation
-                    if validate_before and len(val_loader) > 0:
-                        print("🔍 Running post-training evaluation...")
-                        evaluator = ModelEvaluator(self.model, val_loader)
-                        post_training_results = evaluator.evaluate_model(num_samples=min(100, len(val_loader)))
-                        print(f"📊 Post-training - Loss: {post_training_results['loss']:.6f}, Perplexity: {post_training_results['perplexity']:.2f}")
-                        
-                        if generate_docs:
-                            self.documenter.set_post_training_eval(post_training_results)
-                            
-                            # Show improvement
-                            if hasattr(self.documenter, 'pre_training_eval') and self.documenter.pre_training_eval:
-                                pre_loss = self.documenter.pre_training_eval['loss']
-                                post_loss = post_training_results['loss']
-                                improvement = ((pre_loss - post_loss) / pre_loss * 100) if pre_loss != 0 else 0
-                                print(f"🎯 Loss improvement: {improvement:+.2f}% (from {pre_loss:.6f} to {post_loss:.6f})")
-                    
+                    # Final comprehensive evaluation is already done above in the eval step
+                    # Just save the final model
                     self.save_model(global_step, is_final=True)
+                    
+                    # Show improvement summary if we have both pre and post training data
+                    if generate_docs and self.documenter.pre_training_eval and len(self.documenter.evaluation_history) > 1:
+                        pre_eval = self.documenter.evaluation_history[0]  # First (pre-training)
+                        final_eval = self.documenter.evaluation_history[-1]  # Last (final)
+                        
+                        print(f"\n🎯 Training Summary:")
+                        pre_loss = pre_eval.get('loss')
+                        final_loss = final_eval.get('loss')
+                        if pre_loss and final_loss:
+                            loss_improvement = ((pre_loss - final_loss) / pre_loss * 100)
+                            print(f"   Loss improvement: {loss_improvement:+.2f}% (from {pre_loss:.6f} to {final_loss:.6f})")
+                        
+                        if pre_eval.get('avg_char_accuracy') and final_eval.get('avg_char_accuracy'):
+                            char_improvement = (final_eval['avg_char_accuracy'] - pre_eval['avg_char_accuracy']) * 100
+                            print(f"   Character accuracy improvement: {char_improvement:+.1f}% (from {pre_eval['avg_char_accuracy']*100:.1f}% to {final_eval['avg_char_accuracy']*100:.1f}%)")
+                        
+                        if pre_eval.get('avg_word_accuracy') and final_eval.get('avg_word_accuracy'):
+                            word_improvement = (final_eval['avg_word_accuracy'] - pre_eval['avg_word_accuracy']) * 100
+                            print(f"   Word accuracy improvement: {word_improvement:+.1f}% (from {pre_eval['avg_word_accuracy']*100:.1f}% to {final_eval['avg_word_accuracy']*100:.1f}%)")
+                    
                     break
 
             if global_step >= max_steps:
