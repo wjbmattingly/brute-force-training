@@ -5,6 +5,8 @@ datasets
 Pillow
 tqdm
 qwen-vl-utils
+matplotlib
+seaborn
 
 # Optional dependencies for specific models
 # Uncomment as needed:

@@ -18,6 +18,11 @@ A no-thrills, unoptimized Python package for finetuning Vision-Language Models (
 - 🎯 Built-in validation loops
 - 📸 Automatic image preprocessing and resizing
 - 🏗️ Modular architecture with base classes for easy extension
+- 📈 **Comprehensive documentation generation** - README.md for each checkpoint
+- 🎨 **Training visualizations** - Loss curves and evaluation charts
+- 📋 **HuggingFace model cards** - Automatic metadata generation
+- 🔍 **Pre/post training evaluation** - Compare model performance
+- 📊 **Training metrics tracking** - Detailed training history
 
 ## Installation
 
@@ -60,7 +65,9 @@ trainer.train_and_validate(
     user_text="Describe this image",
     max_steps=1000,
     train_batch_size=2,
-    learning_rate=1e-5
+    learning_rate=1e-5,
+    validate_before=True,    # Pre-training evaluation
+    generate_docs=True       # Generate documentation
 )
 ```
 
@@ -85,6 +92,53 @@ trainer.train_and_validate(
     learning_rate=1e-5
 )
 ```
+
+## Documentation & Visualization Features
+
+### Automatic Documentation Generation
+
+Every checkpoint now includes comprehensive documentation:
+
+```python
+trainer.train_and_validate(
+    dataset_name="your_dataset",
+    # ... other parameters ...
+    validate_before=True,    # Run evaluation before training starts
+    generate_docs=True       # Generate docs and visualizations
+)
+```
+
+Each saved checkpoint will contain:
+- **README.md** - Detailed model card with training info
+- **training_curves.png** - Loss and learning rate visualizations  
+- **evaluation_comparison.png** - Before/after training performance
+- **training_metrics.json** - Complete training history
+- **model_card_metadata.json** - HuggingFace metadata
+
+### Pre/Post Training Evaluation
+
+Compare your model's performance before and after training:
+
+```python
+# This will automatically run if validate_before=True
+# Shows output like:
+# 🔍 Running pre-training evaluation...
+# 📊 Pre-training - Loss: 2.456789, Perplexity: 11.67
+# 
+# [training happens]
+#
+# 🔍 Running post-training evaluation...  
+# 📊 Post-training - Loss: 1.234567, Perplexity: 3.44
+# 🎯 Loss improvement: +49.75% (from 2.456789 to 1.234567)
+```
+
+### Training Visualizations
+
+Automatic generation of:
+- **Loss curves** showing training and validation loss over time
+- **Learning rate schedules** 
+- **Evaluation comparisons** with before/after metrics
+- **Training progress** with step-by-step metrics
 
 ## Advanced Usage
 

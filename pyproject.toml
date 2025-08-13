@@ -33,6 +33,8 @@ dependencies = [
     "Pillow>=9.0.0",
     "tqdm>=4.60.0",
     "qwen-vl-utils>=0.0.8",
+    "matplotlib>=3.5.0",
+    "seaborn>=0.11.0",
 ]
 
 [project.optional-dependencies]

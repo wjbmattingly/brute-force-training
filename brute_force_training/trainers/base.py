@@ -3,6 +3,7 @@ Base trainer class with common functionality
 """
 
 import os
+import json
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Union
 import torch
@@ -10,6 +11,8 @@ from torch.utils.data import DataLoader
 from torch.optim import AdamW
 from tqdm import tqdm
 from datasets import load_dataset
+from ..utils.documentation import ModelDocumenter
+from ..utils.evaluation import ModelEvaluator
 
 
 class BaseTrainer(ABC):
@@ -32,6 +35,8 @@ class BaseTrainer(ABC):
         self.device = device
         self.model = None
         self.tokenizer_or_processor = None
+        self.documenter = ModelDocumenter(model_name, output_dir)
+        self.current_step = 0
         
     @abstractmethod
     def load_model_and_processor(self) -> None:
@@ -116,7 +121,7 @@ class BaseTrainer(ABC):
         return avg_val_loss
         
     def save_model(self, step: int, is_final: bool = False) -> None:
-        """Save the model and tokenizer/processor."""
+        """Save the model, tokenizer/processor, and documentation."""
         if self.model is None or self.tokenizer_or_processor is None:
             raise RuntimeError("Model or processor not loaded.")
             
@@ -126,8 +131,20 @@ class BaseTrainer(ABC):
             save_dir = os.path.join(self.output_dir, f"model_step_{step}")
             
         os.makedirs(save_dir, exist_ok=True)
+        
+        # Save model and tokenizer
         self.model.save_pretrained(save_dir)
         self.tokenizer_or_processor.save_pretrained(save_dir)
+        
+        # Save model card metadata for HuggingFace
+        model_card_metadata = self.documenter.create_model_card_metadata()
+        with open(os.path.join(save_dir, 'model_card_metadata.json'), 'w') as f:
+            json.dump(model_card_metadata, f, indent=2)
+        
+        # Save comprehensive documentation
+        self.documenter.save_documentation(save_dir, is_final)
+        
+        print(f"✅ Model {'and documentation ' if is_final else ''}saved to {save_dir}")
         
     def train_and_validate(
         self,
@@ -144,6 +161,8 @@ class BaseTrainer(ABC):
         train_field: str = "train",
         val_field: str = "validation",
         learning_rate: float = 1e-5,
+        validate_before: bool = True,
+        generate_docs: bool = True,
         **kwargs
     ) -> None:
         """
@@ -163,6 +182,8 @@ class BaseTrainer(ABC):
             train_field: Field name for training data in the dataset.
             val_field: Field name for validation data in the dataset.
             learning_rate: Learning rate for the optimizer.
+            validate_before: Whether to run evaluation before training starts.
+            generate_docs: Whether to generate documentation and visualizations.
             **kwargs: Additional arguments passed to create_dataset.
         """
         # Load model and processor
@@ -212,6 +233,37 @@ class BaseTrainer(ABC):
             train_dataset, val_dataset, train_batch_size, val_batch_size
         )
         
+        # Store training configuration in documenter
+        if generate_docs:
+            training_config = {
+                'dataset_name': dataset_name,
+                'model_name': self.model_name,
+                'max_steps': max_steps,
+                'eval_steps': eval_steps,
+                'num_accumulation_steps': num_accumulation_steps,
+                'learning_rate': learning_rate,
+                'train_batch_size': train_batch_size,
+                'val_batch_size': val_batch_size,
+                'train_select_start': train_select_start,
+                'train_select_end': train_select_end,
+                'val_select_start': val_select_start,
+                'val_select_end': val_select_end,
+                'train_field': train_field,
+                'val_field': val_field,
+                **kwargs
+            }
+            self.documenter.set_training_config(training_config)
+        
+        # Pre-training evaluation
+        if validate_before and len(val_loader) > 0:
+            print("🔍 Running pre-training evaluation...")
+            evaluator = ModelEvaluator(self.model, val_loader)
+            pre_training_results = evaluator.evaluate_model(num_samples=min(100, len(val_loader)))
+            print(f"📊 Pre-training - Loss: {pre_training_results['loss']:.6f}, Perplexity: {pre_training_results['perplexity']:.2f}")
+            
+            if generate_docs:
+                self.documenter.set_pre_training_eval(pre_training_results)
+        
         # Setup training
         self.model.train()
         optimizer = AdamW(self.model.parameters(), lr=learning_rate)
@@ -223,11 +275,21 @@ class BaseTrainer(ABC):
         while global_step < max_steps:
             for batch in train_loader:
                 global_step += 1
+                self.current_step = global_step
                 inputs, labels = batch
                 outputs = self.model(**inputs, labels=labels)
                 
                 loss = outputs.loss / num_accumulation_steps
                 loss.backward()
+                
+                # Log training metrics
+                if generate_docs:
+                    current_lr = optimizer.param_groups[0]['lr']
+                    self.documenter.log_training_step(
+                        step=global_step, 
+                        loss=loss.item() * num_accumulation_steps,
+                        learning_rate=current_lr
+                    )
                 
                 if global_step % num_accumulation_steps == 0:
                     optimizer.step()
@@ -240,19 +302,40 @@ class BaseTrainer(ABC):
                 if global_step % eval_steps == 0 or global_step == max_steps:
                     avg_val_loss = self.validate(val_loader)
                     if avg_val_loss is not None:
-                        print(f"\nStep {global_step}: Validation Loss = {avg_val_loss:.4f}")
+                        print(f"\n📈 Step {global_step}: Validation Loss = {avg_val_loss:.6f}")
+                        
+                        # Log validation metrics
+                        if generate_docs:
+                            self.documenter.log_validation_step(global_step, avg_val_loss)
                     else:
-                        print(f"\nStep {global_step}: Validation skipped (empty validation set)")
+                        print(f"\n⚠️ Step {global_step}: Validation skipped (empty validation set)")
 
                     self.save_model(global_step)
                     self.model.train()  # Set back to training mode
 
                 if global_step >= max_steps:
+                    # Post-training evaluation
+                    if validate_before and len(val_loader) > 0:
+                        print("🔍 Running post-training evaluation...")
+                        evaluator = ModelEvaluator(self.model, val_loader)
+                        post_training_results = evaluator.evaluate_model(num_samples=min(100, len(val_loader)))
+                        print(f"📊 Post-training - Loss: {post_training_results['loss']:.6f}, Perplexity: {post_training_results['perplexity']:.2f}")
+                        
+                        if generate_docs:
+                            self.documenter.set_post_training_eval(post_training_results)
+                            
+                            # Show improvement
+                            if hasattr(self.documenter, 'pre_training_eval') and self.documenter.pre_training_eval:
+                                pre_loss = self.documenter.pre_training_eval['loss']
+                                post_loss = post_training_results['loss']
+                                improvement = ((pre_loss - post_loss) / pre_loss * 100) if pre_loss != 0 else 0
+                                print(f"🎯 Loss improvement: {improvement:+.2f}% (from {pre_loss:.6f} to {post_loss:.6f})")
+                    
                     self.save_model(global_step, is_final=True)
                     break
 
             if global_step >= max_steps:
-                self.save_model(global_step, is_final=True)
                 break
 
         progress_bar.close()
+        print("🎉 Training completed!")
