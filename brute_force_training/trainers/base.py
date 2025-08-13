@@ -199,27 +199,64 @@ class BaseTrainer(ABC):
         print(f"Number of training examples after filtering: {len(filtered_train_dataset)}")
         print(f"Number of validation examples after filtering: {len(filtered_val_dataset)}")
         
-        # Calculate actual selection ranges
-        actual_train_end = min(train_select_end, len(filtered_train_dataset))
-        actual_val_end = min(val_select_end, len(filtered_val_dataset))
-        
-        print(f"Training selection: {train_select_start}:{actual_train_end}")
-        print(f"Validation selection: {val_select_start}:{actual_val_end}")
-        
-        # Select subsets
-        train_dataset = filtered_train_dataset.shuffle(seed=42).select(
-            range(train_select_start, actual_train_end)
-        )
-        
-        # Handle validation dataset selection
-        if val_select_start >= len(filtered_val_dataset):
-            print(f"Warning: Validation start index ({val_select_start}) >= dataset size ({len(filtered_val_dataset)})")
-            print("Creating empty validation set - validation will be skipped")
-            val_dataset = filtered_val_dataset.select([])  # Empty selection
+        # Handle case where train and validation come from the same split
+        if train_field == val_field:
+            print("📝 Using same dataset split for training and validation")
+            # Use the training dataset for both, but split it properly
+            total_examples = len(filtered_train_dataset)
+            
+            # Calculate actual selection ranges
+            actual_train_end = min(train_select_end, total_examples)
+            actual_val_start = min(val_select_start, total_examples)
+            actual_val_end = min(val_select_end, total_examples)
+            
+            print(f"Total examples: {total_examples}")
+            print(f"Training selection: {train_select_start}:{actual_train_end}")
+            print(f"Validation selection: {actual_val_start}:{actual_val_end}")
+            
+            # Ensure validation range is valid
+            if actual_val_start >= total_examples or actual_val_start >= actual_val_end:
+                print(f"⚠️ Warning: Invalid validation range ({actual_val_start}:{actual_val_end}) for dataset size {total_examples}")
+                print("🔧 Auto-adjusting: Using last 10% of training data for validation")
+                
+                # Auto-adjust: use last 10% of available data for validation
+                val_size = max(100, int(actual_train_end * 0.1))  # At least 100 examples or 10%
+                actual_val_start = max(0, actual_train_end - val_size)
+                actual_val_end = actual_train_end
+                actual_train_end = actual_val_start  # Adjust training end to not overlap
+                
+                print(f"📊 Adjusted - Training: {train_select_start}:{actual_train_end}, Validation: {actual_val_start}:{actual_val_end}")
+            
+            # Select subsets from the same filtered dataset
+            shuffled_dataset = filtered_train_dataset.shuffle(seed=42)
+            train_dataset = shuffled_dataset.select(range(train_select_start, actual_train_end))
+            val_dataset = shuffled_dataset.select(range(actual_val_start, actual_val_end))
+            
         else:
-            val_dataset = filtered_val_dataset.shuffle(seed=42).select(
-                range(val_select_start, actual_val_end)
+            # Different splits for training and validation
+            print("📝 Using separate dataset splits for training and validation")
+            
+            # Calculate actual selection ranges
+            actual_train_end = min(train_select_end, len(filtered_train_dataset))
+            actual_val_end = min(val_select_end, len(filtered_val_dataset))
+            
+            print(f"Training selection: {train_select_start}:{actual_train_end}")
+            print(f"Validation selection: {val_select_start}:{actual_val_end}")
+            
+            # Select subsets
+            train_dataset = filtered_train_dataset.shuffle(seed=42).select(
+                range(train_select_start, actual_train_end)
             )
+            
+            # Handle validation dataset selection
+            if val_select_start >= len(filtered_val_dataset):
+                print(f"⚠️ Warning: Validation start index ({val_select_start}) >= dataset size ({len(filtered_val_dataset)})")
+                print("Creating empty validation set - validation will be skipped")
+                val_dataset = filtered_val_dataset.select([])  # Empty selection
+            else:
+                val_dataset = filtered_val_dataset.shuffle(seed=42).select(
+                    range(val_select_start, actual_val_end)
+                )
         
         print(f"Final training examples selected: {len(train_dataset)}")
         print(f"Final validation examples selected: {len(val_dataset)}")
