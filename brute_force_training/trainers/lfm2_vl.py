@@ -52,18 +52,8 @@ class LFM2VLTrainer(BaseTrainer):
         )
         
     def filter_dataset(self, dataset):
-        """Filter dataset for appropriate text length."""
-        def filter_fn(example):
-            # This will be set when create_dataset is called with text_column
-            # For now, use a generic approach
-            text_fields = [field for field in example.keys() if 'text' in field.lower()]
-            if not text_fields:
-                return True
-            text_field = text_fields[0]
-            text_content = example.get(text_field, "")
-            return text_content is not None and 30 < len(str(text_content)) <= 2700
-        
-        return dataset.filter(filter_fn)
+        """No default filtering applied - returns dataset unchanged."""
+        return dataset
         
     def create_collate_fn(self) -> callable:
         """Create collate function for LFM2-VL."""

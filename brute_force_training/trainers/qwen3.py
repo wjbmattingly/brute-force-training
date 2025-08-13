@@ -44,23 +44,8 @@ class Qwen3Trainer(BaseTrainer):
         return TextOnlyDataset(dataset, input_column, output_column)
         
     def filter_dataset(self, dataset):
-        """Filter dataset for appropriate text length."""
-        def filter_fn(example):
-            # Look for common input/output fields
-            input_fields = [field for field in example.keys() if 'input' in field.lower()]
-            output_fields = [field for field in example.keys() if 'output' in field.lower()]
-            
-            if not input_fields or not output_fields:
-                return True
-                
-            input_text = example.get(input_fields[0], "")
-            output_text = example.get(output_fields[0], "")
-            
-            return (input_text is not None and output_text is not None and 
-                    10 < len(str(input_text)) <= 5000 and 
-                    10 < len(str(output_text)) <= 5000)
-        
-        return dataset.filter(filter_fn)
+        """No default filtering applied - returns dataset unchanged."""
+        return dataset
         
     def create_collate_fn(self) -> callable:
         """Create collate function for Qwen3."""

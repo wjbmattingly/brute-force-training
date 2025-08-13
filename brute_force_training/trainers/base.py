@@ -49,9 +49,8 @@ class BaseTrainer(ABC):
         pass
         
     def filter_dataset(self, dataset: Any, filter_fn: Optional[callable] = None) -> Any:
-        """Filter dataset using provided function or default filtering."""
+        """Filter dataset using provided function. No default filtering applied."""
         if filter_fn is None:
-            # Default filtering - can be overridden by subclasses
             return dataset
         return dataset.filter(filter_fn)
         
