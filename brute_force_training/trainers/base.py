@@ -164,6 +164,7 @@ class BaseTrainer(ABC):
         validate_before: bool = True,
         generate_docs: bool = True,
         validation_text_metrics: bool = True,  # Whether to include text metrics during training validation
+        validation_samples: int = 100,  # Number of samples to use for validation during training
         **kwargs
     ) -> None:
         """
@@ -349,8 +350,8 @@ class BaseTrainer(ABC):
                     if len(val_loader) > 0:
                         print(f"\n🔍 Running validation at step {global_step}...")
                         evaluator = ModelEvaluator(self.model, val_loader, self.tokenizer_or_processor)
-                        # Use smaller sample size during training for efficiency
-                        eval_samples = min(30, len(val_loader))
+                        # Use configurable sample size during training for efficiency
+                        eval_samples = min(validation_samples, len(val_loader))
                         eval_results = evaluator.evaluate_model(num_samples=eval_samples, include_text_metrics=validation_text_metrics)
                         
                         print(f"📈 Step {global_step} Validation Results:")
