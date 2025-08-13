@@ -145,11 +145,10 @@ class ModelEvaluator:
                                     'use_cache': False,  # Disable cache to avoid potential issues with variable image tokens
                                 }
                                 
-                                # Only add attention_mask if it exists and is valid
-                                if 'attention_mask' in single_inputs and single_inputs['attention_mask'] is not None:
-                                    generation_kwargs['attention_mask'] = single_inputs['attention_mask']
+                                # Merge single_inputs with generation_kwargs, avoiding duplicates
+                                final_kwargs = {**single_inputs, **generation_kwargs}
                                 
-                                generated_ids = self.model.generate(**single_inputs, **generation_kwargs)
+                                generated_ids = self.model.generate(**final_kwargs)
                                 
                             except Exception as gen_error:
                                 # More detailed error logging for debugging
