@@ -6,7 +6,7 @@
 </p>
 
 <h3 align="center">
-No thrills. Un-Optimized. Training.
+No frills. Un-Optimized. Training.
 </h3>
 
 
