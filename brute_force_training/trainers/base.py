@@ -110,9 +110,21 @@ class BaseTrainer(ABC):
         
         with torch.no_grad():
             for batch in tqdm(val_loader, desc="Validating"):
-                inputs, labels = batch
+                # Handle both standard and enhanced batch formats
+                if len(batch) == 3:
+                    inputs, labels, target_texts = batch
+                else:
+                    inputs, labels = batch
+                    target_texts = None
+                
                 outputs = self.model(**inputs, labels=labels)
-                loss = outputs.loss
+                
+                # Use hybrid loss if available, otherwise standard loss
+                if hasattr(self, 'compute_hybrid_loss') and hasattr(self, 'use_error_rate_loss') and self.use_error_rate_loss:
+                    loss, _ = self.compute_hybrid_loss(outputs, labels, target_texts)
+                else:
+                    loss = outputs.loss
+                    
                 total_val_loss += loss.item()
                 num_batches += 1
         
@@ -323,10 +335,27 @@ class BaseTrainer(ABC):
             for batch in train_loader:
                 global_step += 1
                 self.current_step = global_step
-                inputs, labels = batch
+                
+                # Handle both standard and enhanced batch formats
+                if len(batch) == 3:
+                    inputs, labels, target_texts = batch
+                else:
+                    inputs, labels = batch
+                    target_texts = None
+                
                 outputs = self.model(**inputs, labels=labels)
                 
-                loss = outputs.loss / num_accumulation_steps
+                # Use hybrid loss if available, otherwise standard loss
+                if hasattr(self, 'compute_hybrid_loss') and hasattr(self, 'use_error_rate_loss') and self.use_error_rate_loss:
+                    loss, loss_components = self.compute_hybrid_loss(outputs, labels, target_texts)
+                    loss = loss / num_accumulation_steps
+                    
+                    # Log detailed loss components if documentation is enabled
+                    if generate_docs and global_step % 100 == 0:  # Log every 100 steps
+                        print(f"Step {global_step} Loss Components: CE={loss_components['ce_loss']:.4f}, CER={loss_components['cer_loss']:.4f}, WER={loss_components['wer_loss']:.4f}")
+                else:
+                    loss = outputs.loss / num_accumulation_steps
+                
                 loss.backward()
                 
                 # Log training metrics
