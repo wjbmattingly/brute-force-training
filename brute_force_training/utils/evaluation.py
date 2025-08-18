@@ -109,11 +109,22 @@ class ModelEvaluator:
                 if num_samples and i >= num_samples:
                     break
                     
-                inputs, labels = batch
+                # Handle both standard and enhanced batch formats
+                if len(batch) == 3:
+                    inputs, labels, target_texts = batch
+                else:
+                    inputs, labels = batch
+                    target_texts = None
                 
                 # Calculate loss
                 outputs = self.model(**inputs, labels=labels)
-                loss = outputs.loss
+                
+                # Use hybrid loss if available on the model, otherwise standard loss
+                if hasattr(self.model, 'compute_hybrid_loss') and hasattr(self.model, 'use_error_rate_loss') and self.model.use_error_rate_loss:
+                    loss, _ = self.model.compute_hybrid_loss(outputs, labels, target_texts)
+                else:
+                    loss = outputs.loss
+                    
                 total_loss += loss.item()
                 losses.append(loss.item())
                 total_samples += inputs['input_ids'].size(0)
