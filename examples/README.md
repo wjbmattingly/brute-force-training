@@ -25,7 +25,7 @@ python train_qwen2_vl.py
 cd examples
 python use_config.py
 ```
-
+    
 ### Command Line Interface
 ```bash
 # Train with CLI arguments

@@ -25,46 +25,71 @@ def find_assistant_content_sublist_indexes(
         A list of (start_index, end_index) pairs indicating the positions
         of assistant content sublists within the input list.
     """
-    start_indexes = []
-    end_indexes = []
+    assistant_ranges = []
     
     if tokenizer is not None:
-        # Try to use tokenizer-aware approach for more robust matching
-        text = tokenizer.decode(token_ids, skip_special_tokens=False)
+        # Decode the full sequence to understand the structure
+        full_text = tokenizer.decode(token_ids, skip_special_tokens=False)
         
-        # Look for assistant markers in the decoded text
-        assistant_start = "<|im_start|>assistant"
-        assistant_end = "<|im_end|>"
+        # Model-specific token patterns
+        model_name = getattr(tokenizer, 'name_or_path', '').lower()
         
-        # Find positions in the original token list by re-encoding substrings
-        for i in range(len(token_ids)):
-            # Look for sequences that might indicate assistant content start
-            substring = tokenizer.decode(token_ids[max(0, i-5):i+10], skip_special_tokens=False)
-            if "assistant" in substring.lower():
-                start_indexes.append(i)
-                # Look for end marker
-                for j in range(i + 1, len(token_ids)):
-                    end_substring = tokenizer.decode(token_ids[j:min(len(token_ids), j+5)], skip_special_tokens=False)
-                    if any(end_marker in end_substring for end_marker in ["<|im_end|>", "</s>", tokenizer.eos_token or ""]):
-                        end_indexes.append(j)
+        if 'lfm2' in model_name or 'liquid' in model_name:
+            # LFM2-VL specific tokens: <|im_start|> = [6], assistant = [64015], <|im_end|> = [7]
+            assistant_start_pattern = [6, 64015]  # <|im_start|>assistant
+            end_token = 7  # <|im_end|>
+        else:
+            # Qwen models: [151644, 77091] for <|im_start|>assistant, [151645] for <|im_end|>
+            assistant_start_pattern = [151644, 77091]
+            end_token = 151645
+        
+        # Find assistant content ranges using token pattern matching
+        i = 0
+        while i < len(token_ids) - len(assistant_start_pattern):
+            # Check if we found the assistant start pattern
+            if token_ids[i:i+len(assistant_start_pattern)] == assistant_start_pattern:
+                # Start of assistant content is after the pattern + any newline tokens
+                start_idx = i + len(assistant_start_pattern)
+                
+                # Skip any immediate newline/whitespace tokens after assistant marker
+                while start_idx < len(token_ids) and tokenizer.decode([token_ids[start_idx]]).strip() == "":
+                    start_idx += 1
+                
+                # Find the end token
+                end_idx = len(token_ids) - 1  # Default to end of sequence
+                for j in range(start_idx, len(token_ids)):
+                    if token_ids[j] == end_token:
+                        end_idx = j - 1  # End before the end marker
                         break
-                if len(end_indexes) < len(start_indexes):
-                    # If no end found, use end of sequence
-                    end_indexes.append(len(token_ids) - 1)
-        
-        return list(zip(start_indexes[:len(end_indexes)], end_indexes))
+                
+                if start_idx <= end_idx:
+                    assistant_ranges.append((start_idx, end_idx))
+                
+                i = end_idx + 1  # Move past this assistant section
+            else:
+                i += 1
     
     else:
-        # Fallback to hardcoded token IDs (specific to Qwen models)
-        # Iterate through the list to find starting points
-        for i in range(len(token_ids) - 1):
-            # Check if the current and next element form the start sequence
-            if token_ids[i] == 151644 and token_ids[i + 1] == 77091:
-                start_indexes.append(i)
-                # Now look for the first 151645 after the start
-                for j in range(i + 2, len(token_ids)):
-                    if token_ids[j] == 151645:
-                        end_indexes.append(j)
-                        break  # Move to the next start after finding the end
-
-        return list(zip(start_indexes, end_indexes))
+        # Fallback: assume Qwen model tokens if no tokenizer provided
+        assistant_start_pattern = [151644, 77091]  # <|im_start|>assistant for Qwen
+        end_token = 151645  # <|im_end|> for Qwen
+        
+        i = 0
+        while i < len(token_ids) - 1:
+            if token_ids[i:i+2] == assistant_start_pattern:
+                start_idx = i + 2
+                # Find end token
+                end_idx = len(token_ids) - 1
+                for j in range(start_idx, len(token_ids)):
+                    if token_ids[j] == end_token:
+                        end_idx = j - 1
+                        break
+                
+                if start_idx <= end_idx:
+                    assistant_ranges.append((start_idx, end_idx))
+                
+                i = end_idx + 1
+            else:
+                i += 1
+    
+    return assistant_ranges

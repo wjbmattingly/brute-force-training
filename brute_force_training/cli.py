@@ -40,17 +40,15 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Train Qwen2-VL with full documentation
+  # Train Qwen2-VL on a vision-language dataset
   brute-force-train --trainer qwen2-vl --model-name Qwen/Qwen2-VL-2B-Instruct \\
                     --output-dir ./my_model --dataset-name my_dataset \\
-                    --image-column image --text-column caption \\
-                    --validate-before --generate-docs
+                    --image-column image --text-column caption
   
-  # Train Qwen3 without pre-training evaluation
+  # Train Qwen3 on a text dataset
   brute-force-train --trainer qwen3 --model-name Qwen/Qwen3-4B-Thinking-2507 \\
                     --output-dir ./my_text_model --dataset-name my_text_dataset \\
-                    --input-column input --output-column output \\
-                    --no-validate-before
+                    --input-column input --output-column output
   
   # Use configuration file
   brute-force-train --config config.json
@@ -83,8 +81,6 @@ Examples:
     parser.add_argument("--output-column", type=str, default="output", help="Output column for text models")
     parser.add_argument("--user-text", type=str, default="Convert this image to text", 
                        help="User prompt text for vision models")
-    parser.add_argument("--system-prompt", type=str, default=None,
-                       help="System prompt for text models (like instruction/context)")
     
     # Training arguments
     parser.add_argument("--max-steps", type=int, default=10000, help="Maximum training steps")
@@ -109,12 +105,6 @@ Examples:
     parser.add_argument("--max-pixel", type=int, default=384, help="Maximum pixel size (Qwen models)")
     parser.add_argument("--image-factor", type=int, default=28, help="Image factor (Qwen models)")
     parser.add_argument("--max-length", type=int, default=2048, help="Max sequence length (text models)")
-    
-    # Documentation and evaluation arguments
-    parser.add_argument("--validate-before", action="store_true", default=True, help="Run evaluation before training")
-    parser.add_argument("--no-validate-before", dest="validate_before", action="store_false", help="Skip pre-training evaluation")
-    parser.add_argument("--generate-docs", action="store_true", default=True, help="Generate documentation and visualizations")
-    parser.add_argument("--no-docs", dest="generate_docs", action="store_false", help="Skip documentation generation")
     
     args = parser.parse_args()
     

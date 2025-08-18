@@ -86,10 +86,10 @@ class LFM2VLTrainer(BaseTrainer):
             label_ids = [-100] * len(ids_list)
             # Find the indexes of assistant content in the input IDs
             for begin_end_indexs in find_assistant_content_sublist_indexes(ids_list, processor.tokenizer):
-                # Set the label IDs for assistant content, skipping some initial tokens
-                start_idx = begin_end_indexs[0] + 1  # Skip assistant role token
+                # Set the label IDs for assistant content
+                start_idx = begin_end_indexs[0]  # Use exact start of assistant content
                 end_idx = begin_end_indexs[1]
-                if start_idx < end_idx:
+                if start_idx <= end_idx:
                     label_ids[start_idx:end_idx+1] = ids_list[start_idx:end_idx+1]
             labels_list.append(label_ids)
 
