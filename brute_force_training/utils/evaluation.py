@@ -80,10 +80,11 @@ class CharacterLevelMetrics:
 class ModelEvaluator:
     """Handles model evaluation before and after training."""
     
-    def __init__(self, model, data_loader, processor=None):
+    def __init__(self, model, data_loader, processor=None, trainer=None):
         self.model = model
         self.data_loader = data_loader
         self.processor = processor or getattr(model, 'processor', None)
+        self.trainer = trainer  # Keep reference to trainer for hybrid loss
         
     def evaluate_model(self, num_samples: int = None, include_text_metrics: bool = True) -> Dict[str, Any]:
         """
@@ -119,9 +120,10 @@ class ModelEvaluator:
                 # Calculate loss
                 outputs = self.model(**inputs, labels=labels)
                 
-                # Use hybrid loss if available on the model, otherwise standard loss
-                if hasattr(self.model, 'compute_hybrid_loss') and hasattr(self.model, 'use_error_rate_loss') and self.model.use_error_rate_loss:
-                    loss, _ = self.model.compute_hybrid_loss(outputs, labels, target_texts)
+                # Use hybrid loss if available on the trainer, otherwise standard loss
+                if (self.trainer and hasattr(self.trainer, 'compute_hybrid_loss') and 
+                    hasattr(self.trainer, 'use_error_rate_loss') and self.trainer.use_error_rate_loss):
+                    loss, _ = self.trainer.compute_hybrid_loss(outputs, labels, target_texts)
                 else:
                     loss = outputs.loss
                     

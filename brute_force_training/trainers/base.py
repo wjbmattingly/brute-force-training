@@ -308,7 +308,7 @@ class BaseTrainer(ABC):
         # Pre-training evaluation
         if validate_before and len(val_loader) > 0:
             print("🔍 Running pre-training evaluation...")
-            evaluator = ModelEvaluator(self.model, val_loader, self.tokenizer_or_processor)
+            evaluator = ModelEvaluator(self.model, val_loader, self.tokenizer_or_processor, trainer=self)
             pre_training_results = evaluator.evaluate_model(num_samples=min(50, len(val_loader)), include_text_metrics=True)
             
             # Print comprehensive pre-training results
@@ -378,7 +378,7 @@ class BaseTrainer(ABC):
                 if global_step % eval_steps == 0 or global_step == max_steps:
                     if len(val_loader) > 0:
                         print(f"\n🔍 Running validation at step {global_step}...")
-                        evaluator = ModelEvaluator(self.model, val_loader, self.tokenizer_or_processor)
+                        evaluator = ModelEvaluator(self.model, val_loader, self.tokenizer_or_processor, trainer=self)
                         # Use configurable sample size during training for efficiency
                         eval_samples = min(validation_samples, len(val_loader))
                         eval_results = evaluator.evaluate_model(num_samples=eval_samples, include_text_metrics=validation_text_metrics)
