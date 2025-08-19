@@ -186,7 +186,13 @@ class ModelEvaluator:
                                 if 'pixel_values' in single_inputs and single_inputs['pixel_values'].numel() == 0:
                                     print(f"  Empty pixel values in batch {i}, sample {batch_idx} - skipping text evaluation")
                                     continue
-                                #note
+                                
+                                # Additional validation for vision-language models
+                                if 'pixel_values' in single_inputs:
+                                    pixel_shape = single_inputs['pixel_values'].shape
+                                    if len(pixel_shape) < 3 or pixel_shape[0] == 0:
+                                        print(f"  Invalid pixel shape {pixel_shape} in batch {i}, sample {batch_idx} - skipping")
+                                        continue
                                 
                                 # For models with image token constraints (e.g., LFM2-VL), use conservative generation
                                 generation_kwargs = {
@@ -209,10 +215,16 @@ class ModelEvaluator:
                                 error_msg = str(gen_error)
                                 if "Image features and image tokens do not match" in error_msg:
                                     print(f"  Image token mismatch in batch {i}, sample {batch_idx} - skipping text evaluation for this sample")
-                                elif "shape" in error_msg and "invalid" in error_msg:
+                                elif "shape" in error_msg.lower():
                                     print(f"  Shape error in batch {i}, sample {batch_idx} - skipping text evaluation for this sample")
+                                elif "size mismatch" in error_msg.lower():
+                                    print(f"  Size mismatch in batch {i}, sample {batch_idx} - skipping text evaluation for this sample")
                                 else:
-                                    print(f"  Generation failed for batch {i}, sample {batch_idx}: {error_msg}")
+                                    # For debugging: show first occurrence of unknown errors
+                                    if not hasattr(self, '_generation_error_logged'):
+                                        print(f"  Generation error details: {error_msg}")
+                                        self._generation_error_logged = True
+                                    print(f"  Generation failed for batch {i}, sample {batch_idx} - skipping text evaluation")
                                 continue
                             
                             # Extract only the generated part (remove input)
