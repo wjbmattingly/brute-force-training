@@ -417,7 +417,7 @@ class BaseTrainer(ABC):
         if validate_before and len(val_loader) > 0:
             print("🔍 Running pre-training evaluation...")
             evaluator = ModelEvaluator(self.model, val_loader, self.tokenizer_or_processor, trainer=self)
-            pre_training_results = evaluator.evaluate_model(num_samples=min(50, len(val_loader)), include_text_metrics=True)
+            pre_training_results = evaluator.evaluate_model(num_samples=min(50, len(val_loader)), include_text_metrics=validation_text_metrics)
             
             # Print comprehensive pre-training results
             print(f"📊 Pre-training Results:")
