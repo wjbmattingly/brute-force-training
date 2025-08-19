@@ -182,12 +182,13 @@ class LFM2VLTrainer(BaseTrainer):
                 max_word_len = max(len(pred_words), len(target_words), 1)
                 wer = word_distance / max_word_len
                 
-                # Debug output every 1000 steps to understand what's happening
-                if hasattr(self, 'current_step') and self.current_step % 1000 == 0 and valid_samples == 0:
+                # Debug output every 100 steps to understand what's happening
+                if hasattr(self, 'current_step') and self.current_step % 100 == 0 and valid_samples == 0:
                     print(f"\n🔍 CER/WER Debug (Step {self.current_step}):")
                     print(f"   Target: {repr(target_text[:50])}...")
-                    print(f"   Predicted: {repr(predicted_text[:50])}...")
+                    print(f"   Predicted (from logits): {repr(predicted_text[:50])}...")
                     print(f"   CER: {cer:.3f}, WER: {wer:.3f}")
+                    print(f"   NOTE: This uses greedy sampling from logits, not actual generation!")
                 
                 total_cer += cer
                 total_wer += wer

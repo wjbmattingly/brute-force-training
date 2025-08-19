@@ -62,16 +62,16 @@ class BaseTrainer(ABC):
                     
                 target_text = self.tokenizer_or_processor.decode(target_tokens, skip_special_tokens=True).strip()
                 
-                # Generate prediction with more generous settings for better text quality
+                # Generate prediction with conservative settings for transcription task
                 generation_kwargs = {
-                    'max_new_tokens': min(100, max(50, len(target_tokens))),  # More generous token limit
+                    'max_new_tokens': min(len(target_tokens) + 10, 50),  # Much more conservative - target length + small buffer
                     'do_sample': False,  # Greedy sampling for consistency
                     'pad_token_id': getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0)),
                     'eos_token_id': getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0)),
                     'use_cache': False,
-                    'repetition_penalty': 1.1,  # Slight penalty to avoid repetition
-                    'temperature': 1.0,
-                    'top_p': 1.0,
+                    'repetition_penalty': 1.2,  # Higher penalty to prevent loops
+                    'length_penalty': 1.0,
+                    'early_stopping': True,
                 }
                 
                 final_kwargs = {**single_inputs, **generation_kwargs}
