@@ -64,15 +64,20 @@ class Qwen25VLTrainer(BaseTrainer):
             padding_side="right"
         )
         
-        # Ensure clean generation config to avoid warnings
-        if hasattr(self.model, 'generation_config'):
-            # Remove any problematic generation parameters
-            if hasattr(self.model.generation_config, 'temperature'):
-                delattr(self.model.generation_config, 'temperature')
-            # Set conservative defaults
-            self.model.generation_config.do_sample = False
+        # Ensure clean generation config to avoid warnings and errors
+        if hasattr(self.model, 'generation_config') and self.model.generation_config is not None:
+            # Set temperature to a default value to prevent attribute errors
+            # even though we're using do_sample=False
+            # self.model.generation_config.temperature = 1.0  # Default value
+            self.model.generation_config.do_sample = False  # This makes temperature irrelevant
             self.model.generation_config.pad_token_id = getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0))
             self.model.generation_config.eos_token_id = getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0))
+            
+            # Remove any invalid generation parameters that Qwen2.5-VL doesn't support
+            invalid_params = ['use_cache']  # Add other problematic params here if needed
+            for param in invalid_params:
+                if hasattr(self.model.generation_config, param):
+                    delattr(self.model.generation_config, param)
         
     def create_dataset(
         self, 
@@ -199,9 +204,11 @@ class Qwen25VLTrainer(BaseTrainer):
                         generation_kwargs = {
                             'max_new_tokens': min(len(target_tokens) + 5, 30),  # Much smaller limit
                             'do_sample': False,  # Greedy sampling
+                            'temperature': 1.0,  # Set explicitly even though do_sample=False
+                            'top_p': 1.0,  # Set explicitly to prevent issues
+                            'top_k': 50,  # Set explicitly to prevent issues
                             'pad_token_id': getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0)),
                             'eos_token_id': getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0)),
-                            'use_cache': True,  # Enable cache for speed
                         }
                         
                         final_kwargs = {**single_inputs, **generation_kwargs}
