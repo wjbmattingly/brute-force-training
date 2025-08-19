@@ -89,22 +89,10 @@ class Qwen25VLTrainer(BaseTrainer):
         )
         
     def filter_dataset(self, dataset, filter_fn=None):
-        """Filter dataset like the original working script - remove text that's too short or too long."""
+        """No default filtering applied - returns dataset unchanged unless filter_fn is provided."""
         if filter_fn is not None:
             return dataset.filter(filter_fn)
-            
-        # Default filtering like the original working script
-        def filter_text_length(example):
-            # Try common text column names
-            text_value = None
-            for col in ['text', 'transcription', 'content', 'caption']:
-                if col in example:
-                    text_value = example[col]
-                    break
-            
-            return text_value is not None and 30 < len(str(text_value)) <= 2700
-        
-        return dataset.filter(filter_text_length)
+        return dataset
         
     def create_collate_fn(self) -> callable:
         """Create collate function for Qwen2.5-VL."""
