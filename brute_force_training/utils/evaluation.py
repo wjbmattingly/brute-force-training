@@ -191,10 +191,12 @@ class ModelEvaluator:
                                 # For models with image token constraints (e.g., LFM2-VL), use conservative generation
                                 generation_kwargs = {
                                     'max_new_tokens': min(50, len(target_tokens)),  # Very conservative for image-text models
-                                    'do_sample': False,
+                                    'do_sample': False,  # Disable sampling completely
+                                    'temperature': 1.0,  # Set explicitly even though do_sample=False
+                                    'top_p': 1.0,  # Set explicitly to prevent issues
+                                    'top_k': 50,  # Set explicitly to prevent issues
                                     'pad_token_id': getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0)),
                                     'eos_token_id': getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0)),
-                                    'use_cache': False,  # Disable cache to avoid potential issues with variable image tokens
                                 }
                                 
                                 # Merge single_inputs with generation_kwargs, avoiding duplicates
