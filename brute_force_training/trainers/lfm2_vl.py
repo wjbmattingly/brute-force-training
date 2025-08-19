@@ -127,13 +127,12 @@ class LFM2VLTrainer(BaseTrainer):
         else:
             return inputs, labels_ids
     
-    def calculate_error_rate_loss(self, logits, labels, target_texts):
+    def calculate_error_rate_loss(self, logits, labels, target_texts, inputs=None):
         """
-        Calculate character and word error rate losses.
+        Calculate character and word error rate losses using proper model generation.
         
-        WARNING: This method uses greedy sampling from logits during training,
-        which may not reflect actual model generation quality and can be noisy.
-        Consider using this primarily for monitoring rather than heavy loss weighting.
+        This method now uses the same generation approach as training predictions
+        for consistency between debug output and actual model predictions.
         """
         if not self.use_error_rate_loss or Levenshtein is None:
             return 0.0, 0.0
@@ -143,56 +142,121 @@ class LFM2VLTrainer(BaseTrainer):
         total_wer = 0.0
         valid_samples = 0
         
-        for i in range(batch_size):
-            if i >= len(target_texts) or not target_texts[i]:
-                continue
+        # Switch to eval mode temporarily for generation
+        was_training = self.model.training
+        self.model.eval()
+        
+        with torch.no_grad():
+            for i in range(batch_size):
+                if i >= len(target_texts) or not target_texts[i]:
+                    continue
+                    
+                target_text = target_texts[i].strip()
+                if not target_text:
+                    continue
+                    
+                # Use proper generation if inputs are available, otherwise fall back to logits
+                if inputs is not None:
+                    try:
+                        # Extract single sample from batch
+                        single_inputs = {k: v[i:i+1] for k, v in inputs.items() if k != 'labels'}
+                        single_labels = labels[i:i+1]
+                        
+                        # Extract target length for conservative generation
+                        target_tokens = single_labels[0][single_labels[0] != -100]
+                        if len(target_tokens) == 0:
+                            continue
+                        
+                        # Generate prediction with same conservative settings as training predictions
+                        generation_kwargs = {
+                            'max_new_tokens': min(len(target_tokens) + 10, 50),
+                            'do_sample': False,  # Greedy sampling for consistency
+                            'pad_token_id': getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0)),
+                            'eos_token_id': getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0)),
+                            'use_cache': False,
+                            'repetition_penalty': 1.2,
+                            'length_penalty': 1.0,
+                            'early_stopping': True,
+                        }
+                        
+                        final_kwargs = {**single_inputs, **generation_kwargs}
+                        generated_ids = self.model.generate(**final_kwargs)
+                        
+                        # Extract only the generated part
+                        input_length = single_inputs['input_ids'].size(1)
+                        generated_tokens = generated_ids[0][input_length:]
+                        predicted_text = self.tokenizer_or_processor.tokenizer.decode(
+                            generated_tokens, skip_special_tokens=True
+                        ).strip()
+                        
+                    except Exception as e:
+                        # Fall back to logits-based prediction if generation fails
+                        sample_logits = logits[i]
+                        predicted_ids = torch.argmax(sample_logits, dim=-1)
+                        
+                        # Extract only assistant content
+                        sample_labels = labels[i]
+                        assistant_mask = sample_labels != -100
+                        
+                        if not torch.any(assistant_mask):
+                            continue
+                            
+                        predicted_assistant_tokens = predicted_ids[assistant_mask]
+                        predicted_text = self.tokenizer_or_processor.tokenizer.decode(
+                            predicted_assistant_tokens, skip_special_tokens=True
+                        ).strip()
+                        
+                        # Note the fallback in debug output
+                        if hasattr(self, 'current_step') and self.current_step % 100 == 0 and valid_samples == 0:
+                            print(f"   Note: Generation failed, using logits fallback: {e}")
+                            
+                else:
+                    # Fall back to original logits-based method if no inputs provided
+                    sample_logits = logits[i]
+                    predicted_ids = torch.argmax(sample_logits, dim=-1)
+                    
+                    # Extract only assistant content
+                    sample_labels = labels[i]
+                    assistant_mask = sample_labels != -100
+                    
+                    if not torch.any(assistant_mask):
+                        continue
+                        
+                    predicted_assistant_tokens = predicted_ids[assistant_mask]
+                    predicted_text = self.tokenizer_or_processor.tokenizer.decode(
+                        predicted_assistant_tokens, skip_special_tokens=True
+                    ).strip()
                 
-            target_text = target_texts[i].strip()
-            if not target_text:
-                continue
-                
-            # Get predicted tokens (greedy sampling)
-            sample_logits = logits[i]
-            predicted_ids = torch.argmax(sample_logits, dim=-1)
-            
-            # Extract only assistant content
-            sample_labels = labels[i]
-            assistant_mask = sample_labels != -100
-            
-            if not torch.any(assistant_mask):
-                continue
-                
-            predicted_assistant_tokens = predicted_ids[assistant_mask]
-            predicted_text = self.tokenizer_or_processor.tokenizer.decode(
-                predicted_assistant_tokens, skip_special_tokens=True
-            ).strip()
-            
-            if predicted_text:
-                # Character Error Rate
-                char_distance = Levenshtein.distance(predicted_text, target_text)
-                max_char_len = max(len(predicted_text), len(target_text), 1)
-                cer = char_distance / max_char_len
-                
-                # Word Error Rate using proper edit distance
-                pred_words = predicted_text.lower().split()
-                target_words = target_text.lower().split()
-                
-                # Use Levenshtein distance on word sequences  
-                word_distance = Levenshtein.distance(pred_words, target_words)
-                max_word_len = max(len(pred_words), len(target_words), 1)
-                wer = word_distance / max_word_len
-                
-                # Debug output every 100 steps to understand what's happening
-                if hasattr(self, 'current_step') and self.current_step % 100 == 0 and valid_samples == 0:
-                    print(f"\n🔍 CER/WER Debug (Step {self.current_step}):")
-                    print(f"   Target: {repr(target_text[:50])}...")
-                    print(f"   Predicted (from logits): {repr(predicted_text[:50])}...")
-                    print(f"   CER: {cer:.3f}, WER: {wer:.3f}")
-                    print(f"   NOTE: This uses greedy sampling from logits, not actual generation!")
-                
-                total_cer += cer
-                total_wer += wer
-                valid_samples += 1
+                if predicted_text:
+                    # Character Error Rate
+                    char_distance = Levenshtein.distance(predicted_text, target_text)
+                    max_char_len = max(len(predicted_text), len(target_text), 1)
+                    cer = char_distance / max_char_len
+                    
+                    # Word Error Rate using proper edit distance
+                    pred_words = predicted_text.lower().split()
+                    target_words = target_text.lower().split()
+                    
+                    # Use Levenshtein distance on word sequences  
+                    word_distance = Levenshtein.distance(pred_words, target_words)
+                    max_word_len = max(len(pred_words), len(target_words), 1)
+                    wer = word_distance / max_word_len
+                    
+                    # Debug output every 100 steps to understand what's happening
+                    if hasattr(self, 'current_step') and self.current_step % 100 == 0 and valid_samples == 0:
+                        print(f"\n🔍 CER/WER Debug (Step {self.current_step}):")
+                        print(f"   Target: {repr(target_text[:50])}...")
+                        print(f"   Predicted (proper generation): {repr(predicted_text[:50])}...")
+                        print(f"   CER: {cer:.3f}, WER: {wer:.3f}")
+                        print(f"   NOTE: This now uses the same generation method as training predictions!")
+                    
+                    total_cer += cer
+                    total_wer += wer
+                    valid_samples += 1
+        
+        # Restore training mode
+        if was_training:
+            self.model.train()
         
         if valid_samples == 0:
             return 0.0, 0.0
@@ -202,7 +266,7 @@ class LFM2VLTrainer(BaseTrainer):
         
         return avg_cer, avg_wer
     
-    def compute_hybrid_loss(self, outputs, labels, target_texts=None):
+    def compute_hybrid_loss(self, outputs, labels, target_texts=None, inputs=None):
         """Compute hybrid loss combining cross-entropy with error rate losses."""
         ce_loss = outputs.loss
         
@@ -210,7 +274,7 @@ class LFM2VLTrainer(BaseTrainer):
             return ce_loss, {'ce_loss': ce_loss.item(), 'cer_loss': 0.0, 'wer_loss': 0.0, 'total_loss': ce_loss.item()}
         
         try:
-            cer_loss, wer_loss = self.calculate_error_rate_loss(outputs.logits, labels, target_texts)
+            cer_loss, wer_loss = self.calculate_error_rate_loss(outputs.logits, labels, target_texts, inputs)
             
             # Convert to tensors if they aren't already
             if not isinstance(cer_loss, torch.Tensor):

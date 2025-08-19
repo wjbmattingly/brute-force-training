@@ -157,7 +157,7 @@ class ModelEvaluator:
                 # Use hybrid loss if available on the trainer, otherwise standard loss
                 if (self.trainer and hasattr(self.trainer, 'compute_hybrid_loss') and 
                     hasattr(self.trainer, 'use_error_rate_loss') and self.trainer.use_error_rate_loss):
-                    loss, _ = self.trainer.compute_hybrid_loss(outputs, labels, target_texts)
+                    loss, _ = self.trainer.compute_hybrid_loss(outputs, labels, target_texts, inputs)
                 else:
                     loss = outputs.loss
                     

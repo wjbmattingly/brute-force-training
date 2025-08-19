@@ -227,7 +227,7 @@ class BaseTrainer(ABC):
                 
                 # Use hybrid loss if available, otherwise standard loss
                 if hasattr(self, 'compute_hybrid_loss') and hasattr(self, 'use_error_rate_loss') and self.use_error_rate_loss:
-                    loss, _ = self.compute_hybrid_loss(outputs, labels, target_texts)
+                    loss, _ = self.compute_hybrid_loss(outputs, labels, target_texts, inputs)
                 else:
                     loss = outputs.loss
                     
@@ -453,7 +453,7 @@ class BaseTrainer(ABC):
                 
                 # Use hybrid loss if available, otherwise standard loss
                 if hasattr(self, 'compute_hybrid_loss') and hasattr(self, 'use_error_rate_loss') and self.use_error_rate_loss:
-                    loss, loss_components = self.compute_hybrid_loss(outputs, labels, target_texts)
+                    loss, loss_components = self.compute_hybrid_loss(outputs, labels, target_texts, inputs)
                     loss = loss / num_accumulation_steps
                     
                     # Log detailed loss components if documentation is enabled
