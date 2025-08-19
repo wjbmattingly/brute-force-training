@@ -66,9 +66,11 @@ class BaseTrainer(ABC):
                 generation_kwargs = {
                     'max_new_tokens': min(len(target_tokens) + 10, 50),  # Much more conservative - target length + small buffer
                     'do_sample': False,  # Greedy sampling for consistency
+                    'temperature': 1.0,  # Set explicitly even though do_sample=False
+                    'top_p': 1.0,  # Set explicitly to prevent issues
+                    'top_k': 50,  # Set explicitly to prevent issues
                     'pad_token_id': getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0)),
                     'eos_token_id': getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0)),
-                    'use_cache': False,
                     'repetition_penalty': 1.2,  # Higher penalty to prevent loops
                     'length_penalty': 1.0,
                     # 'early_stopping': True,

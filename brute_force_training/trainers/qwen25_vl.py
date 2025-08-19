@@ -74,10 +74,10 @@ class Qwen25VLTrainer(BaseTrainer):
             self.model.generation_config.eos_token_id = getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0))
             
             # Remove any invalid generation parameters that Qwen2.5-VL doesn't support
-            invalid_params = ['use_cache']  # Add other problematic params here if needed
-            for param in invalid_params:
-                if hasattr(self.model.generation_config, param):
-                    delattr(self.model.generation_config, param)
+            # invalid_params = ['use_cache']  # Add other problematic params here if needed
+            # for param in invalid_params:
+            #     if hasattr(self.model.generation_config, param):
+            #         delattr(self.model.generation_config, param)
         
     def create_dataset(
         self, 
