@@ -13,6 +13,7 @@ from tqdm import tqdm
 from datasets import load_dataset
 from ..utils.documentation import ModelDocumenter
 from ..utils.evaluation import ModelEvaluator
+import difflib
 
 
 class BaseTrainer(ABC):
@@ -41,6 +42,88 @@ class BaseTrainer(ABC):
         self.tokenizer_or_processor = None
         self.documenter = ModelDocumenter(model_name, output_dir)
         self.current_step = 0
+        
+    def _display_training_prediction(self, inputs, labels, step: int, sample_idx: int = 0) -> None:
+        """Display prediction for a training sample if flags are enabled."""
+        if not (self.show_predictions or self.show_diff):
+            return
+            
+        try:
+            self.model.eval()  # Temporarily switch to eval mode
+            with torch.no_grad():
+                # Get single item from batch for prediction display
+                single_inputs = {k: v[sample_idx:sample_idx+1] for k, v in inputs.items() if k != 'labels'}
+                single_labels = labels[sample_idx:sample_idx+1]
+                
+                # Extract target text from labels
+                target_tokens = single_labels[0][single_labels[0] != -100]
+                if len(target_tokens) == 0:
+                    return
+                    
+                target_text = self.tokenizer_or_processor.decode(target_tokens, skip_special_tokens=True).strip()
+                
+                # Generate prediction with conservative settings
+                generation_kwargs = {
+                    'max_new_tokens': min(50, len(target_tokens)),
+                    'do_sample': False,
+                    'pad_token_id': getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0)),
+                    'eos_token_id': getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0)),
+                    'use_cache': False,
+                }
+                
+                final_kwargs = {**single_inputs, **generation_kwargs}
+                generated_ids = self.model.generate(**final_kwargs)
+                
+                # Extract only the generated part
+                input_length = single_inputs['input_ids'].size(1)
+                generated_tokens = generated_ids[0][input_length:]
+                generated_text = self.tokenizer_or_processor.decode(generated_tokens, skip_special_tokens=True).strip()
+                
+                # Display predictions and/or diffs
+                if self.show_predictions:
+                    print(f"\n📝 Training Step {step} Sample:")
+                    print(f"🎯 Ground Truth: {target_text}")
+                    print(f"🤖 Prediction:   {generated_text}")
+                
+                if self.show_diff:
+                    self._display_training_diff(generated_text, target_text, step)
+                    
+        except Exception as e:
+            # Don't interrupt training if prediction display fails
+            print(f"  ⚠️ Training prediction display failed at step {step}: {e}")
+        finally:
+            self.model.train()  # Switch back to training mode
+    
+    def _display_training_diff(self, predicted: str, ground_truth: str, step: int) -> None:
+        """Display a colored diff for training samples."""
+        print(f"\n📊 Training Step {step} Diff:")
+        print("=" * 50)
+        
+        # Generate unified diff
+        diff = list(difflib.unified_diff(
+            ground_truth.splitlines(keepends=True),
+            predicted.splitlines(keepends=True),
+            fromfile='Ground Truth',
+            tofile='Prediction',
+            lineterm=''
+        ))
+        
+        if len(diff) > 2:  # Only show if there are actual differences
+            print("🔍 Diff:")
+            for line in diff:
+                if line.startswith('+++') or line.startswith('---'):
+                    print(f"  {line.strip()}")
+                elif line.startswith('+'):
+                    print(f"  \033[92m{line.rstrip()}\033[0m")  # Green for additions
+                elif line.startswith('-'):
+                    print(f"  \033[91m{line.rstrip()}\033[0m")  # Red for deletions
+                elif line.startswith('@@'):
+                    print(f"  \033[94m{line.rstrip()}\033[0m")  # Blue for line numbers
+                else:
+                    print(f"  {line.rstrip()}")
+        else:
+            print("✅ Texts are identical!")
+        print("=" * 50)
         
     @abstractmethod
     def load_model_and_processor(self) -> None:
@@ -359,6 +442,10 @@ class BaseTrainer(ABC):
                         print(f"Step {global_step} Loss Components: CE={loss_components['ce_loss']:.4f}, CER={loss_components['cer_loss']:.4f}, WER={loss_components['wer_loss']:.4f}")
                 else:
                     loss = outputs.loss / num_accumulation_steps
+                
+                # Display training predictions periodically if requested
+                if (self.show_predictions or self.show_diff) and global_step % 100 == 0:
+                    self._display_training_prediction(inputs, labels, global_step)
                 
                 loss.backward()
                 
