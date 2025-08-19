@@ -29,13 +29,15 @@ class LFM2VLTrainer(BaseTrainer):
         wer_weight: float = 0.2,
         ce_weight: float = 0.5,
         show_predictions: bool = False,
-        show_diff: bool = False
+        show_diff: bool = False,
+        debug_cer_generation: bool = False  # New flag to control CER debug speed
     ):
         super().__init__(model_name, output_dir, device, show_predictions, show_diff)
         self.use_error_rate_loss = use_error_rate_loss
         self.cer_weight = cer_weight
         self.wer_weight = wer_weight
         self.ce_weight = ce_weight
+        self.debug_cer_generation = debug_cer_generation
         
     def load_model_and_processor(self) -> None:
         """Load the LFM2-VL model and processor."""
@@ -155,8 +157,8 @@ class LFM2VLTrainer(BaseTrainer):
                 if not target_text:
                     continue
                     
-                # Use proper generation if inputs are available, otherwise fall back to logits
-                if inputs is not None:
+                # Use proper generation if enabled and inputs available, otherwise fast logits method
+                if self.debug_cer_generation and inputs is not None:
                     try:
                         # Extract single sample from batch
                         single_inputs = {k: v[i:i+1] for k, v in inputs.items() if k != 'labels'}
@@ -167,16 +169,14 @@ class LFM2VLTrainer(BaseTrainer):
                         if len(target_tokens) == 0:
                             continue
                         
-                        # Generate prediction with same conservative settings as training predictions
+                        # FASTER generation settings - reduce overhead
                         generation_kwargs = {
-                            'max_new_tokens': min(len(target_tokens) + 10, 50),
-                            'do_sample': False,  # Greedy sampling for consistency
+                            'max_new_tokens': min(len(target_tokens) + 5, 30),  # Much smaller limit
+                            'do_sample': False,  # Greedy sampling
                             'pad_token_id': getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0)),
                             'eos_token_id': getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0)),
-                            'use_cache': False,
-                            'repetition_penalty': 1.2,
-                            'length_penalty': 1.0,
-                            # 'early_stopping': True,
+                            'use_cache': True,  # Enable cache for speed
+                            # Remove penalties for speed
                         }
                         
                         final_kwargs = {**single_inputs, **generation_kwargs}
@@ -190,7 +190,7 @@ class LFM2VLTrainer(BaseTrainer):
                         ).strip()
                         
                     except Exception as e:
-                        # Fall back to logits-based prediction if generation fails
+                        # Fall back to fast logits method
                         sample_logits = logits[i]
                         predicted_ids = torch.argmax(sample_logits, dim=-1)
                         
@@ -208,10 +208,10 @@ class LFM2VLTrainer(BaseTrainer):
                         
                         # Note the fallback in debug output
                         if hasattr(self, 'current_step') and self.current_step % 100 == 0 and valid_samples == 0:
-                            print(f"   Note: Generation failed, using logits fallback: {e}")
+                            print(f"   Note: Generation failed, using fast logits fallback: {e}")
                             
                 else:
-                    # Fall back to original logits-based method if no inputs provided
+                    # FAST: Use original logits-based method (default behavior)
                     sample_logits = logits[i]
                     predicted_ids = torch.argmax(sample_logits, dim=-1)
                     
@@ -244,11 +244,15 @@ class LFM2VLTrainer(BaseTrainer):
                     
                     # Debug output every 100 steps to understand what's happening
                     if hasattr(self, 'current_step') and self.current_step % 100 == 0 and valid_samples == 0:
+                        method_desc = "proper generation" if self.debug_cer_generation else "fast greedy logits"
                         print(f"\n🔍 CER/WER Debug (Step {self.current_step}):")
                         print(f"   Target: {repr(target_text[:50])}...")
-                        print(f"   Predicted (proper generation): {repr(predicted_text[:50])}...")
+                        print(f"   Predicted ({method_desc}): {repr(predicted_text[:50])}...")
                         print(f"   CER: {cer:.3f}, WER: {wer:.3f}")
-                        print(f"   NOTE: This now uses the same generation method as training predictions!")
+                        if self.debug_cer_generation:
+                            print(f"   NOTE: Using same generation method as predictions (slower but consistent)")
+                        else:
+                            print(f"   NOTE: Using fast greedy logits (faster but may differ from actual predictions)")
                     
                     total_cer += cer
                     total_wer += wer
