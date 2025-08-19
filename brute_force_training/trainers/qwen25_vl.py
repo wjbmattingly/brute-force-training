@@ -71,38 +71,60 @@ class Qwen25VLTrainer(BaseTrainer):
         """
         Collate function for processing batches of data for the Qwen2.5-VL model.
         
-        This function handles image processing more robustly to avoid shape errors.
+        This uses the qwen_vl_utils.process_vision_info but with better error handling.
         """
         messages = [item['messages'] for item in batch]
+        
+        # Apply chat template to get texts
         texts = [processor.apply_chat_template(msg, tokenize=False, add_generation_prompt=False) for msg in messages]
         
-        # Extract images directly from messages structure
-        images = []
-        for msg in messages:
-            for message in msg:
-                if message['role'] == 'user':
-                    for content in message['content']:
-                        if content['type'] == 'image':
-                            images.append(content['image'])
-                            break  # Only take the first image per message
+        # Use process_vision_info but with error handling for empty results
+        try:
+            image_inputs, video_inputs = process_vision_info(messages)
+            
+            # Validate that we have proper image inputs
+            if image_inputs is None or len(image_inputs) == 0:
+                # Fallback: extract images manually
+                image_inputs = []
+                for msg in messages:
+                    for message in msg:
+                        if message['role'] == 'user':
+                            for content in message['content']:
+                                if content['type'] == 'image':
+                                    image_inputs.append(content['image'])
+                                    break
+                            break
+                if len(image_inputs) == 0:
+                    image_inputs = None
+                    
+        except Exception as e:
+            print(f"process_vision_info failed: {e}, falling back to manual extraction")
+            # Manual extraction as fallback
+            image_inputs = []
+            for msg in messages:
+                for message in msg:
+                    if message['role'] == 'user':
+                        for content in message['content']:
+                            if content['type'] == 'image':
+                                image_inputs.append(content['image'])
+                                break
+                        break
+            video_inputs = None
+            if len(image_inputs) == 0:
+                image_inputs = None
         
-        # Ensure we have the right number of images
-        if len(images) != len(messages):
-            # If there's a mismatch, use None for missing images
-            while len(images) < len(messages):
-                images.append(None)
-        
-        # Process with error handling for empty or invalid images
+        # Process the text, images, and videos using the processor
         try:
             inputs = processor(
                 text=texts,
-                images=images if any(img is not None for img in images) else None,
+                images=image_inputs,
+                videos=video_inputs,
                 padding=True,
                 return_tensors="pt",
             )
         except Exception as e:
-            print(f"Error in processor: {e}")
-            # Fallback: process without images
+            print(f"Processor failed with images: {e}, trying text-only")
+            # Final fallback: text-only processing
             inputs = processor(
                 text=texts,
                 padding=True,
