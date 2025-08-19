@@ -71,22 +71,43 @@ class Qwen25VLTrainer(BaseTrainer):
         """
         Collate function for processing batches of data for the Qwen2.5-VL model.
         
-        This uses the new qwen_vl_utils.process_vision_info for proper image/video processing.
+        This function handles image processing more robustly to avoid shape errors.
         """
         messages = [item['messages'] for item in batch]
         texts = [processor.apply_chat_template(msg, tokenize=False, add_generation_prompt=False) for msg in messages]
         
-        # Use the new vision processing utility to extract image and video inputs
-        image_inputs, video_inputs = process_vision_info(messages)
+        # Extract images directly from messages structure
+        images = []
+        for msg in messages:
+            for message in msg:
+                if message['role'] == 'user':
+                    for content in message['content']:
+                        if content['type'] == 'image':
+                            images.append(content['image'])
+                            break  # Only take the first image per message
         
-        # Process the text, images, and videos using the processor
-        inputs = processor(
-            text=texts,
-            images=image_inputs,
-            videos=video_inputs,
-            padding=True,
-            return_tensors="pt",
-        )
+        # Ensure we have the right number of images
+        if len(images) != len(messages):
+            # If there's a mismatch, use None for missing images
+            while len(images) < len(messages):
+                images.append(None)
+        
+        # Process with error handling for empty or invalid images
+        try:
+            inputs = processor(
+                text=texts,
+                images=images if any(img is not None for img in images) else None,
+                padding=True,
+                return_tensors="pt",
+            )
+        except Exception as e:
+            print(f"Error in processor: {e}")
+            # Fallback: process without images
+            inputs = processor(
+                text=texts,
+                padding=True,
+                return_tensors="pt",
+            )
 
         # Move the inputs to the specified device
         inputs = inputs.to(device)

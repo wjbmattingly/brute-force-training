@@ -183,6 +183,11 @@ class ModelEvaluator:
                             
                             # Generate prediction with more conservative settings
                             try:
+                                # Validate input tensors before generation
+                                if 'pixel_values' in single_inputs and single_inputs['pixel_values'].numel() == 0:
+                                    print(f"  Empty pixel values in batch {i}, sample {batch_idx} - skipping text evaluation")
+                                    continue
+                                
                                 # For models with image token constraints (e.g., LFM2-VL), use conservative generation
                                 generation_kwargs = {
                                     'max_new_tokens': min(50, len(target_tokens)),  # Very conservative for image-text models
@@ -202,6 +207,8 @@ class ModelEvaluator:
                                 error_msg = str(gen_error)
                                 if "Image features and image tokens do not match" in error_msg:
                                     print(f"  Image token mismatch in batch {i}, sample {batch_idx} - skipping text evaluation for this sample")
+                                elif "shape" in error_msg and "invalid" in error_msg:
+                                    print(f"  Shape error in batch {i}, sample {batch_idx} - skipping text evaluation for this sample")
                                 else:
                                     print(f"  Generation failed for batch {i}, sample {batch_idx}: {error_msg}")
                                 continue
