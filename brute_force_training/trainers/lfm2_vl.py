@@ -176,7 +176,7 @@ class LFM2VLTrainer(BaseTrainer):
                             'use_cache': False,
                             'repetition_penalty': 1.2,
                             'length_penalty': 1.0,
-                            'early_stopping': True,
+                            # 'early_stopping': True,
                         }
                         
                         final_kwargs = {**single_inputs, **generation_kwargs}

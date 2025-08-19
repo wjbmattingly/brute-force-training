@@ -71,7 +71,7 @@ class BaseTrainer(ABC):
                     'use_cache': False,
                     'repetition_penalty': 1.2,  # Higher penalty to prevent loops
                     'length_penalty': 1.0,
-                    'early_stopping': True,
+                    # 'early_stopping': True,
                 }
                 
                 final_kwargs = {**single_inputs, **generation_kwargs}
