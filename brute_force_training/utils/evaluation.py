@@ -8,7 +8,6 @@ from tqdm import tqdm
 import Levenshtein
 import difflib
 
-
 class CharacterLevelMetrics:
     """Calculate character-level metrics for text comparison using proven methods."""
     
@@ -187,6 +186,7 @@ class ModelEvaluator:
                                 if 'pixel_values' in single_inputs and single_inputs['pixel_values'].numel() == 0:
                                     print(f"  Empty pixel values in batch {i}, sample {batch_idx} - skipping text evaluation")
                                     continue
+                                #note
                                 
                                 # For models with image token constraints (e.g., LFM2-VL), use conservative generation
                                 generation_kwargs = {
