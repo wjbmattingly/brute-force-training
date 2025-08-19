@@ -28,11 +28,15 @@ class BaseTrainer(ABC):
         self,
         model_name: str,
         output_dir: str,
-        device: str = "cuda"
+        device: str = "cuda",
+        show_predictions: bool = False,
+        show_diff: bool = False
     ):
         self.model_name = model_name
         self.output_dir = output_dir
         self.device = device
+        self.show_predictions = show_predictions
+        self.show_diff = show_diff
         self.model = None
         self.tokenizer_or_processor = None
         self.documenter = ModelDocumenter(model_name, output_dir)

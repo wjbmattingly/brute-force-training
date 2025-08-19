@@ -22,9 +22,11 @@ class Qwen2VLTrainer(BaseTrainer):
         device: str = "cuda",
         min_pixel: int = 256,
         max_pixel: int = 384,
-        image_factor: int = 28
+        image_factor: int = 28,
+        show_predictions: bool = False,
+        show_diff: bool = False
     ):
-        super().__init__(model_name, output_dir, device)
+        super().__init__(model_name, output_dir, device, show_predictions, show_diff)
         self.min_pixel = min_pixel
         self.max_pixel = max_pixel
         self.image_factor = image_factor

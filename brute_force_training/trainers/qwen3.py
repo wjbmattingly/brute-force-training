@@ -19,9 +19,11 @@ class Qwen3Trainer(BaseTrainer):
         model_name: str = "Qwen/Qwen3-4B-Thinking-2507",
         output_dir: str = "./qwen3_finetuned",
         device: str = "cuda",
-        max_length: int = 2048
+        max_length: int = 2048,
+        show_predictions: bool = False,
+        show_diff: bool = False
     ):
-        super().__init__(model_name, output_dir, device)
+        super().__init__(model_name, output_dir, device, show_predictions, show_diff)
         self.max_length = max_length
         
     def load_model_and_processor(self) -> None:

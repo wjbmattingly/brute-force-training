@@ -27,9 +27,11 @@ class LFM2VLTrainer(BaseTrainer):
         use_error_rate_loss: bool = False,
         cer_weight: float = 0.3,
         wer_weight: float = 0.2,
-        ce_weight: float = 0.5
+        ce_weight: float = 0.5,
+        show_predictions: bool = False,
+        show_diff: bool = False
     ):
-        super().__init__(model_name, output_dir, device)
+        super().__init__(model_name, output_dir, device, show_predictions, show_diff)
         self.use_error_rate_loss = use_error_rate_loss
         self.cer_weight = cer_weight
         self.wer_weight = wer_weight

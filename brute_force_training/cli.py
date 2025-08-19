@@ -106,6 +106,10 @@ Examples:
     parser.add_argument("--image-factor", type=int, default=28, help="Image factor (Qwen models)")
     parser.add_argument("--max-length", type=int, default=2048, help="Max sequence length (text models)")
     
+    # Display/debugging arguments
+    parser.add_argument("--show-predictions", action="store_true", help="Show model predictions and ground truth during evaluation")
+    parser.add_argument("--show-diff", action="store_true", help="Show colored diff between predictions and ground truth during evaluation")
+    
     args = parser.parse_args()
     
     # Load configuration if provided
@@ -133,7 +137,9 @@ Examples:
     trainer_args = {
         'model_name': config.pop('model_name'),
         'output_dir': config.pop('output_dir'),
-        'device': config.pop('device', 'cuda')
+        'device': config.pop('device', 'cuda'),
+        'show_predictions': config.pop('show_predictions', False),
+        'show_diff': config.pop('show_diff', False)
     }
     
     # Add model-specific arguments

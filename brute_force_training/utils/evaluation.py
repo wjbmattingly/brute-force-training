@@ -6,6 +6,7 @@ import torch
 from typing import Dict, Any, List
 from tqdm import tqdm
 import Levenshtein
+import difflib
 
 
 class CharacterLevelMetrics:
@@ -85,6 +86,39 @@ class ModelEvaluator:
         self.data_loader = data_loader
         self.processor = processor or getattr(model, 'processor', None)
         self.trainer = trainer  # Keep reference to trainer for hybrid loss
+        
+    def _display_diff(self, predicted: str, ground_truth: str, sample_idx: int) -> None:
+        """Display a colored diff between predicted and ground truth text."""
+        print(f"\n📊 Sample {sample_idx} Comparison:")
+        print("=" * 60)
+        print(f"🎯 Ground Truth: {ground_truth}")
+        print(f"🤖 Prediction:   {predicted}")
+        
+        # Generate unified diff
+        diff = list(difflib.unified_diff(
+            ground_truth.splitlines(keepends=True),
+            predicted.splitlines(keepends=True),
+            fromfile='Ground Truth',
+            tofile='Prediction',
+            lineterm=''
+        ))
+        
+        if len(diff) > 2:  # Only show if there are actual differences
+            print("\n🔍 Diff:")
+            for line in diff:
+                if line.startswith('+++') or line.startswith('---'):
+                    print(f"  {line.strip()}")
+                elif line.startswith('+'):
+                    print(f"  \033[92m{line.rstrip()}\033[0m")  # Green for additions
+                elif line.startswith('-'):
+                    print(f"  \033[91m{line.rstrip()}\033[0m")  # Red for deletions
+                elif line.startswith('@@'):
+                    print(f"  \033[94m{line.rstrip()}\033[0m")  # Blue for line numbers
+                else:
+                    print(f"  {line.rstrip()}")
+        else:
+            print("\n✅ Texts are identical!")
+        print("=" * 60)
         
     def evaluate_model(self, num_samples: int = None, include_text_metrics: bool = True) -> Dict[str, Any]:
         """
@@ -181,6 +215,16 @@ class ModelEvaluator:
                             if target_text and generated_text:  # Only if both are non-empty
                                 metrics = CharacterLevelMetrics.calculate_metrics(generated_text, target_text)
                                 text_metrics_list.append(metrics)
+                                
+                                # Display predictions and/or diffs if requested by trainer
+                                sample_idx = i * inputs['input_ids'].size(0) + batch_idx
+                                if self.trainer and hasattr(self.trainer, 'show_predictions') and self.trainer.show_predictions:
+                                    print(f"\n📝 Sample {sample_idx}:")
+                                    print(f"🎯 Ground Truth: {target_text}")
+                                    print(f"🤖 Prediction:   {generated_text}")
+                                
+                                if self.trainer and hasattr(self.trainer, 'show_diff') and self.trainer.show_diff:
+                                    self._display_diff(generated_text, target_text, sample_idx)
                                 
                     except Exception as e:
                         # Skip text metrics if generation fails, but continue with loss
