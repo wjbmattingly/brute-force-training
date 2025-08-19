@@ -62,13 +62,16 @@ class BaseTrainer(ABC):
                     
                 target_text = self.tokenizer_or_processor.decode(target_tokens, skip_special_tokens=True).strip()
                 
-                # Generate prediction with conservative settings
+                # Generate prediction with more generous settings for better text quality
                 generation_kwargs = {
-                    'max_new_tokens': min(50, len(target_tokens)),
-                    'do_sample': False,
+                    'max_new_tokens': min(100, max(50, len(target_tokens))),  # More generous token limit
+                    'do_sample': False,  # Greedy sampling for consistency
                     'pad_token_id': getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0)),
                     'eos_token_id': getattr(self.model.config, 'eos_token_id', getattr(self.model.config, 'pad_token_id', 0)),
                     'use_cache': False,
+                    'repetition_penalty': 1.1,  # Slight penalty to avoid repetition
+                    'temperature': 1.0,
+                    'top_p': 1.0,
                 }
                 
                 final_kwargs = {**single_inputs, **generation_kwargs}
@@ -77,13 +80,29 @@ class BaseTrainer(ABC):
                 # Extract only the generated part
                 input_length = single_inputs['input_ids'].size(1)
                 generated_tokens = generated_ids[0][input_length:]
-                generated_text = self.tokenizer_or_processor.decode(generated_tokens, skip_special_tokens=True).strip()
+                
+                # More robust decoding that handles special characters better
+                try:
+                    # Try different decoding strategies
+                    generated_text = self.tokenizer_or_processor.decode(generated_tokens, skip_special_tokens=True).strip()
+                    if not generated_text:  # If empty, try without skipping special tokens
+                        generated_text = self.tokenizer_or_processor.decode(generated_tokens, skip_special_tokens=False).strip()
+                except Exception as decode_error:
+                    generated_text = f"[Decode Error: {str(decode_error)}]"
                 
                 # Display predictions and/or diffs
                 if self.show_predictions:
                     print(f"\n📝 Training Step {step} Sample:")
-                    print(f"🎯 Ground Truth: {target_text}")
-                    print(f"🤖 Prediction:   {generated_text}")
+                    print(f"🎯 Ground Truth: {repr(target_text)}")  # Use repr to show special characters
+                    print(f"🤖 Prediction:   {repr(generated_text)}")  # Use repr to show special characters
+                    print(f"📏 GT Length: {len(target_text)}, Pred Length: {len(generated_text)}")
+                    
+                    # Quick quality metrics for this sample
+                    if target_text and generated_text:
+                        import Levenshtein
+                        char_dist = Levenshtein.distance(generated_text, target_text)
+                        char_acc = 1.0 - (char_dist / max(len(target_text), len(generated_text), 1))
+                        print(f"📊 Sample CER: {char_dist}/{max(len(target_text), len(generated_text))} = {1-char_acc:.3f}, Char Acc: {char_acc:.3f}")
                 
                 if self.show_diff:
                     self._display_training_diff(generated_text, target_text, step)

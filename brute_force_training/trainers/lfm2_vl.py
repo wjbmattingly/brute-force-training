@@ -128,7 +128,13 @@ class LFM2VLTrainer(BaseTrainer):
             return inputs, labels_ids
     
     def calculate_error_rate_loss(self, logits, labels, target_texts):
-        """Calculate character and word error rate losses."""
+        """
+        Calculate character and word error rate losses.
+        
+        WARNING: This method uses greedy sampling from logits during training,
+        which may not reflect actual model generation quality and can be noisy.
+        Consider using this primarily for monitoring rather than heavy loss weighting.
+        """
         if not self.use_error_rate_loss or Levenshtein is None:
             return 0.0, 0.0
             
@@ -167,21 +173,21 @@ class LFM2VLTrainer(BaseTrainer):
                 max_char_len = max(len(predicted_text), len(target_text), 1)
                 cer = char_distance / max_char_len
                 
-                # Word Error Rate
+                # Word Error Rate using proper edit distance
                 pred_words = predicted_text.lower().split()
                 target_words = target_text.lower().split()
                 
-                # Calculate word-level differences
-                word_distance = 0
-                max_words = max(len(pred_words), len(target_words))
+                # Use Levenshtein distance on word sequences  
+                word_distance = Levenshtein.distance(pred_words, target_words)
+                max_word_len = max(len(pred_words), len(target_words), 1)
+                wer = word_distance / max_word_len
                 
-                for j in range(max_words):
-                    pred_word = pred_words[j] if j < len(pred_words) else ""
-                    target_word = target_words[j] if j < len(target_words) else ""
-                    if pred_word != target_word:
-                        word_distance += 1
-                
-                wer = word_distance / max_words if max_words > 0 else 0.0
+                # Debug output every 1000 steps to understand what's happening
+                if hasattr(self, 'current_step') and self.current_step % 1000 == 0 and valid_samples == 0:
+                    print(f"\n🔍 CER/WER Debug (Step {self.current_step}):")
+                    print(f"   Target: {repr(target_text[:50])}...")
+                    print(f"   Predicted: {repr(predicted_text[:50])}...")
+                    print(f"   CER: {cer:.3f}, WER: {wer:.3f}")
                 
                 total_cer += cer
                 total_wer += wer
